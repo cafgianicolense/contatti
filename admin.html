@@ -4,37 +4,110 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 1 -->
+<!-- rev. 4 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
-  body { font-family: Arial, Helvetica, sans-serif; background: #f4f4f4; margin: 0; padding: 20px; }
-  .box { max-width: 800px; margin: 0 auto; background: #fff; padding: 24px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
-  h1 { font-size: 20px; margin-top: 0; }
-  h2 { font-size: 16px; }
-  input[type=text], input[type=password], select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
-  button { padding: 8px 14px; background: #2a6f2a; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
-  button.secondario { background: #666; }
-  button.pericolo { background: #b02a2a; }
-  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-  th, td { border: 1px solid #ddd; padding: 6px 8px; font-size: 13px; text-align: left; }
-  th { background: #eee; }
-  .riga-campo { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+  :root {
+    --ink: #1c1f26;
+    --muted: #726f66;
+    --blue: #4e6aa9;
+    --blue-dark: #37507f;
+    --green: #2f7d5c;
+    --green-dark: #245e46;
+    --red: #b3402f;
+    --red-dark: #8f3225;
+    --paper: #f3f1ea;
+    --card: #ffffff;
+    --line: #dcd8cc;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Inter', Helvetica, Arial, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    margin: 0;
+    padding: 40px 20px;
+  }
+  .box {
+    max-width: 840px; margin: 0 auto; background: var(--card);
+    padding: 36px 40px 40px; border: 1px solid var(--line);
+    box-shadow: 0 24px 48px -28px rgba(28, 31, 38, 0.28);
+  }
+  .intestazione { display: flex; justify-content: center; margin-bottom: 18px; }
+  .intestazione img { max-width: 200px; display: block; }
+  .divisore { border: none; border-top: 2px dashed var(--blue); opacity: 0.55; margin: 0 0 26px; }
+  h1 {
+    font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 22px;
+    text-align: center; letter-spacing: -0.01em; margin: 0 0 22px;
+  }
+  h2 {
+    font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 17px;
+    margin: 0 0 4px; color: var(--ink);
+  }
+  label { font-weight: 600; font-size: 13px; }
+  input[type=text], input[type=password], select, textarea {
+    padding: 10px 11px; border: 1px solid var(--line); border-radius: 2px;
+    font-size: 14px; font-family: 'Inter', sans-serif; background: #fdfcfa; color: var(--ink);
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(78,106,169,0.15);
+  }
+  button {
+    padding: 9px 16px; background: var(--blue); color: #fff; border: none;
+    border-radius: 2px; cursor: pointer; font-size: 14px; font-weight: 600;
+    font-family: 'Inter', sans-serif; transition: background .15s ease;
+  }
+  button:hover { background: var(--blue-dark); }
+  button.secondario { background: #6b6a63; }
+  button.secondario:hover { background: #55544e; }
+  button.pericolo { background: var(--red); }
+  button.pericolo:hover { background: var(--red-dark); }
+  table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+  th, td { border-bottom: 1px solid var(--line); padding: 9px 10px; font-size: 13px; text-align: left; }
+  th {
+    background: var(--paper); font-weight: 600; text-transform: uppercase;
+    font-size: 11px; letter-spacing: .04em; color: var(--muted);
+  }
+  tr:hover td { background: #fbfaf7; }
+  .riga-campo {
+    display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap;
+    padding: 10px; border: 1px solid var(--line); background: #fdfcfa;
+  }
   .riga-campo input[type=text] { flex: 1; min-width: 100px; }
-  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
-  .tabs button { background: #ccc; color: #333; }
-  .tabs button.attivo { background: #2a6f2a; color: #fff; }
+  .riga-campo label { font-weight: 500; display: flex; align-items: center; gap: 4px; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 22px; border-bottom: 1px solid var(--line); }
+  .tabs button {
+    background: none; color: var(--muted); font-weight: 600; padding: 10px 4px;
+    margin-right: 22px; border-radius: 0; border-bottom: 2px dashed transparent;
+  }
+  .tabs button:hover { background: none; color: var(--ink); }
+  .tabs button.attivo { color: var(--blue); border-bottom: 2px dashed var(--blue); }
   .nascosto { display: none; }
-  #erroreLogin { color: #b02a2a; margin-top: 8px; font-size: 14px; }
+  #erroreLogin { color: var(--red); margin-top: 10px; font-size: 14px; }
+  #loginBox { max-width: 280px; margin: 0 auto; text-align: center; }
+  #loginBox input { width: 100%; margin-top: 6px; margin-bottom: 14px; }
+  .nota { font-size: 13px; color: var(--muted); line-height: 1.5; }
+  code {
+    background: var(--paper); border: 1px solid var(--line); padding: 1px 5px;
+    border-radius: 2px; font-size: 12px;
+  }
 </style>
 </head>
 <body>
 <div class="box">
-  <img src="logo.png" alt="CAF Gianicolense" style="max-width:220px;display:block;margin:0 auto 16px">
-  <h1 style="text-align:center">Pannello di amministrazione</h1>
+  <div class="intestazione">
+    <img src="logo.png" alt="CAF Gianicolense">
+  </div>
+  <hr class="divisore">
+  <h1>Pannello di amministrazione</h1>
 
   <div id="loginBox">
     <label>Password<br><input type="password" id="password"></label>
-    <button onclick="login()">Entra</button>
+    <button onclick="login()" style="width:100%">Entra</button>
     <div id="erroreLogin"></div>
   </div>
 
@@ -63,7 +136,7 @@
 
     <div id="tabEmail" class="nascosto">
       <h2>Invia email personalizzate</h2>
-      <p style="font-size:13px;color:#555">
+      <p class="nota">
         Nel testo puoi usare segnaposto come <code>{{Nome}}</code>, con il nome esatto della colonna tra doppie graffe, verranno sostituiti con il dato di ogni iscritto.
       </p>
       <label>Colonna con l'indirizzo email<br>
@@ -75,16 +148,16 @@
       </label>
       <br><br>
       <label>Testo del messaggio<br>
-        <textarea id="corpoEmail" rows="8" style="width:100%;box-sizing:border-box;padding:8px;font-size:14px;border:1px solid #ccc;border-radius:4px"></textarea>
+        <textarea id="corpoEmail" rows="8" style="width:100%;box-sizing:border-box"></textarea>
       </label>
       <br><br>
       <div id="elencoDestinatari"></div>
       <br>
       <button onclick="inviaEmailATutti()">Invia agli iscritti selezionati</button>
       <div id="esitoInvio" style="margin-top:10px;font-size:13px"></div>
-      <hr style="margin:20px 0">
+      <hr class="divisore" style="margin:26px 0">
       <h2>Registro invii, copia di sicurezza</h2>
-      <p style="font-size:13px;color:#555">Questo elenco viene tenuto sempre, indipendentemente dal fatto che l'email compaia anche nella posta inviata di Aruba.</p>
+      <p class="nota">Questo elenco viene tenuto sempre, indipendentemente dal fatto che l'email compaia anche nella posta inviata di Aruba.</p>
       <button class="secondario" onclick="caricaLogEmail()">Mostra registro</button>
       <div id="tabellaLogEmail"></div>
     </div>

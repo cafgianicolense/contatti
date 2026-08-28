@@ -4,30 +4,88 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Iscrizione CAF Gianicolense</title>
-<!-- rev. 1 -->
+<!-- rev. 3 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  body { font-family: Arial, Helvetica, sans-serif; background: #f4f4f4; margin: 0; padding: 20px; }
-  .box { max-width: 500px; margin: 0 auto; background: #fff; padding: 24px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
-  h1 { font-size: 20px; margin-top: 0; }
-  label { display: block; margin-top: 14px; font-weight: bold; font-size: 14px; }
-  input[type=text], input[type=number], textarea, select {
-    width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;
-    border: 1px solid #ccc; border-radius: 4px; font-size: 14px;
+  :root {
+    --ink: #1c1f26;
+    --muted: #726f66;
+    --blue: #4e6aa9;
+    --blue-dark: #37507f;
+    --green: #2f7d5c;
+    --red: #b3402f;
+    --paper: #f3f1ea;
+    --card: #ffffff;
+    --line: #dcd8cc;
   }
-  .checkbox-row { display: flex; align-items: center; margin-top: 14px; }
-  .checkbox-row input { margin-right: 8px; }
-  .checkbox-row label { margin-top: 0; }
-  button { margin-top: 20px; width: 100%; padding: 12px; background: #2a6f2a; color: #fff; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; }
-  button:disabled { background: #999; }
-  #esito { margin-top: 16px; font-size: 14px; }
-  .ok { color: #2a6f2a; }
-  .errore { color: #b02a2a; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Inter', Helvetica, Arial, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    margin: 0;
+    padding: 56px 20px;
+    min-height: 100vh;
+  }
+  .box {
+    max-width: 520px;
+    margin: 0 auto;
+    background: var(--card);
+    padding: 40px 36px 36px;
+    border: 1px solid var(--line);
+    box-shadow: 0 24px 48px -28px rgba(28, 31, 38, 0.28);
+  }
+  .intestazione { display: flex; justify-content: center; margin-bottom: 22px; }
+  .intestazione img { max-width: 260px; display: block; }
+  .divisore {
+    border: none;
+    border-top: 2px dashed var(--blue);
+    opacity: 0.55;
+    margin: 0 0 26px;
+  }
+  h1 {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 600;
+    font-size: 26px;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+  }
+  .sottotitolo { font-size: 14px; color: var(--muted); margin: 0 0 8px; line-height: 1.5; }
+  label { display: block; margin-top: 20px; font-weight: 600; font-size: 13px; color: var(--ink); }
+  input[type=text], input[type=number], textarea, select {
+    width: 100%; padding: 11px 12px; margin-top: 6px; box-sizing: border-box;
+    border: 1px solid var(--line); border-radius: 2px; font-size: 14px;
+    font-family: 'Inter', sans-serif; background: #fdfcfa; color: var(--ink);
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  input:focus, textarea:focus, select:focus {
+    outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(78,106,169,0.15);
+  }
+  .checkbox-row { display: flex; align-items: center; margin-top: 20px; gap: 10px; }
+  .checkbox-row input { margin: 0; width: 17px; height: 17px; accent-color: var(--blue); }
+  .checkbox-row label { margin-top: 0; font-weight: 500; }
+  button {
+    margin-top: 30px; width: 100%; padding: 13px; background: var(--blue); color: #fff;
+    border: none; border-radius: 2px; font-size: 15px; font-weight: 600; letter-spacing: .01em;
+    cursor: pointer; font-family: 'Inter', sans-serif; transition: background .15s ease;
+  }
+  button:hover:not(:disabled) { background: var(--blue-dark); }
+  button:disabled { background: #c7c4ba; cursor: default; }
+  #esito { margin-top: 18px; font-size: 14px; }
+  .ok { color: var(--green); font-weight: 600; }
+  .errore { color: var(--red); font-weight: 600; }
 </style>
 </head>
 <body>
 <div class="box">
-  <img src="logo.png" alt="CAF Gianicolense" style="max-width:280px;display:block;margin:0 auto 16px">
-  <h1 style="text-align:center">Modulo di iscrizione</h1>
+  <div class="intestazione">
+    <img src="logo.png" alt="CAF Gianicolense">
+  </div>
+  <hr class="divisore">
+  <h1>Modulo di iscrizione</h1>
+  <p class="sottotitolo">Compila i campi qui sotto per completare la tua iscrizione al CAF Gianicolense.</p>
   <form id="form"></form>
   <div id="esito"></div>
 </div>
