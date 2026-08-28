@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Iscrizione CAF Gianicolense</title>
-<!-- rev. 4 -->
+<!-- rev. 5 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -107,16 +107,8 @@
 
     <div class="informativa">
       <h2>Informativa privacy</h2>
-      <div class="testo-informativa">
-        <p><strong>Informativa ai sensi dell'art. 13 del Regolamento europeo 679/2016 e consenso.</strong> Ai sensi dell'art. 13 del Regolamento europeo (UE) 2016/679 (di seguito GDPR), e in relazione ai dati personali di cui lo studio entrerà nella disponibilità con l'affidamento della Sua pratica, Le comunichiamo quanto segue.</p>
-        <p><strong>Titolare del trattamento.</strong> Titolare del trattamento è Giovannoni Luca (di seguito indicato anche come "professionista") con domicilio eletto in Roma, Vicolo della Serpe 81, 00149 Roma. Il titolare può essere contattato tramite pec all'indirizzo l.giovannoni@cdlrmpec.it o mail all'indirizzo studio@giovannoniluca.it. Lo studio del titolare non ha nominato un responsabile della protezione dei dati personali, RPD ovvero DPO.</p>
-        <p><strong>Finalità del trattamento.</strong> Il trattamento è finalizzato alla corretta e completa esecuzione dell'incarico professionale ricevuto, sia in ambito giudiziale che stragiudiziale, oltre che per adempiere agli obblighi fiscali e contabili e agli obblighi previsti dalla normativa vigente per il professionista. I dati potranno essere trattati sia con archivi cartacei che informatici, con modalità strettamente necessarie alle finalità indicate.</p>
-        <p><strong>Base giuridica.</strong> Il trattamento è lecito quando necessario all'esecuzione del mandato o di misure precontrattuali, per adempiere un obbligo legale del professionista, oppure quando basato sul consenso espresso.</p>
-        <p><strong>Conseguenze della mancata comunicazione dei dati.</strong> La mancata comunicazione dei dati necessari all'esecuzione del mandato o all'adempimento di un obbligo normativo impedisce il perfezionarsi del rapporto.</p>
-        <p><strong>Conservazione.</strong> I dati saranno conservati per la durata del contratto e, successivamente, per il tempo in cui il professionista sia soggetto a obblighi di conservazione per finalità fiscali o previste da norme di legge o regolamento.</p>
-        <p><strong>Comunicazione dei dati.</strong> I dati potranno essere comunicati a consulenti, commercialisti o legali che eroghino prestazioni funzionali agli scopi indicati, a istituti bancari e assicurativi per le stesse finalità, a soggetti che elaborano i dati in esecuzione di obblighi di legge, e ad autorità giudiziarie o amministrative per l'adempimento di obblighi di legge.</p>
-        <p><strong>Profilazione e diffusione.</strong> I dati non sono soggetti a diffusione né ad alcun processo decisionale interamente automatizzato, inclusa la profilazione.</p>
-        <p><strong>Diritti dell'interessato.</strong> Lei ha diritto di chiedere l'accesso ai Suoi dati, la rettifica dei dati inesatti o l'integrazione di quelli incompleti, la cancellazione dei dati nei casi previsti dall'art. 17 del GDPR, la limitazione del trattamento nei casi previsti dall'art. 18, la portabilità dei dati quando il trattamento è basato su contratto o consenso ed effettuato con mezzi automatizzati, di opporsi al trattamento in presenza di situazioni particolari, di revocare il consenso in qualsiasi momento senza pregiudicare la liceità del trattamento già effettuato, e di proporre reclamo al Garante per la protezione dei dati personali, www.garanteprivacy.it.</p>
+      <div class="testo-informativa" id="testoInformativa">
+        <p>Caricamento dell'informativa in corso...</p>
       </div>
       <div class="checkbox-row">
         <input type="checkbox" id="consensoPrivacy" required>
@@ -180,6 +172,23 @@
     return wrapper;
   }
 
+  async function caricaInformativa() {
+    const container = document.getElementById('testoInformativa');
+    try {
+      const res = await fetch(BACKEND_URL + '?action=getPrivacy');
+      const data = await res.json();
+      const paragrafi = (data.testo || '').split('\n\n').filter(p => p.trim());
+      container.innerHTML = '';
+      paragrafi.forEach(testo => {
+        const p = document.createElement('p');
+        p.textContent = testo;
+        container.appendChild(p);
+      });
+    } catch (err) {
+      container.innerHTML = '<p>Errore nel caricamento dell\'informativa. Riprova più tardi.</p>';
+    }
+  }
+
   async function caricaForm() {
     try {
       const res = await fetch(BACKEND_URL + '?action=getForm');
@@ -229,6 +238,7 @@
   });
 
   caricaForm();
+  caricaInformativa();
 </script>
 </body>
 </html>

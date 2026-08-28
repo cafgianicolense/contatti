@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 5 -->
+<!-- rev. 6 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -116,6 +116,7 @@
       <button id="tabCampiBtn" class="attivo" onclick="mostraTab('campi')">Gestione campi</button>
       <button id="tabIscrizioniBtn" onclick="mostraTab('iscrizioni')">Iscrizioni</button>
       <button id="tabEmailBtn" onclick="mostraTab('email')">Invia email</button>
+      <button id="tabPrivacyBtn" onclick="mostraTab('privacy')">Privacy</button>
     </div>
 
     <div id="tabCampi">
@@ -162,6 +163,17 @@
       <button class="secondario" onclick="caricaLogEmail()">Mostra registro</button>
       <div id="tabellaLogEmail"></div>
     </div>
+
+    <div id="tabPrivacy" class="nascosto">
+      <h2>Informativa privacy</h2>
+      <p class="nota">
+        Questo testo compare per intero nel modulo pubblico, sopra la spunta di consenso, e nella stampa del mandato. Separa i paragrafi lasciando una riga vuota tra uno e l'altro.
+      </p>
+      <textarea id="testoPrivacyAdmin" rows="16" style="width:100%;box-sizing:border-box"></textarea>
+      <br><br>
+      <button onclick="salvaPrivacy()">Salva informativa</button>
+      <span id="esitoPrivacy"></span>
+    </div>
   </div>
 </div>
 
@@ -172,6 +184,30 @@
   let password = '';
   let campi = [];
   let ultimeIscrizioni = { intestazioni: [], righe: [] };
+  let testoInformativaCorrente = '';
+
+  async function caricaPrivacyInterna() {
+    const res = await fetch(BACKEND_URL + '?action=getPrivacy');
+    const data = await res.json();
+    testoInformativaCorrente = data.testo || '';
+    return testoInformativaCorrente;
+  }
+
+  async function caricaPrivacyAdmin() {
+    const testo = await caricaPrivacyInterna();
+    document.getElementById('testoPrivacyAdmin').value = testo;
+  }
+
+  async function salvaPrivacy() {
+    const testo = document.getElementById('testoPrivacyAdmin').value;
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'savePrivacy', password, testo })
+    });
+    const data = await res.json();
+    testoInformativaCorrente = testo;
+    document.getElementById('esitoPrivacy').textContent = data.ok ? ' Salvato.' : ' Errore nel salvataggio.';
+  }
 
   async function login() {
     password = document.getElementById('password').value;
@@ -186,6 +222,7 @@
         document.getElementById('loginBox').classList.add('nascosto');
         document.getElementById('pannello').classList.remove('nascosto');
         caricaCampi();
+        caricaPrivacyInterna();
       } else {
         document.getElementById('erroreLogin').textContent = 'Password errata.';
       }
@@ -198,11 +235,14 @@
     document.getElementById('tabCampi').classList.toggle('nascosto', nome !== 'campi');
     document.getElementById('tabIscrizioni').classList.toggle('nascosto', nome !== 'iscrizioni');
     document.getElementById('tabEmail').classList.toggle('nascosto', nome !== 'email');
+    document.getElementById('tabPrivacy').classList.toggle('nascosto', nome !== 'privacy');
     document.getElementById('tabCampiBtn').classList.toggle('attivo', nome === 'campi');
     document.getElementById('tabIscrizioniBtn').classList.toggle('attivo', nome === 'iscrizioni');
     document.getElementById('tabEmailBtn').classList.toggle('attivo', nome === 'email');
+    document.getElementById('tabPrivacyBtn').classList.toggle('attivo', nome === 'privacy');
     if (nome === 'iscrizioni') caricaIscrizioni();
     if (nome === 'email') caricaSchedaEmail();
+    if (nome === 'privacy') caricaPrivacyAdmin();
   }
 
   async function caricaCampi() {
@@ -290,7 +330,8 @@
     return '';
   }
 
-  function stampaMandato(i) {
+  async function stampaMandato(i) {
+    if (!testoInformativaCorrente) await caricaPrivacyInterna();
     const riga = ultimeIscrizioni.righe[i];
     const nominativo = trovaValore(riga, ['nominativo', 'nome e cognome', 'nome completo', 'nome']);
     const luogoNascita = trovaValore(riga, ['luogo di nascita', 'nato a']);
@@ -370,7 +411,7 @@
 
   <h2>Informativa privacy, art. 13 Regolamento europeo 679/2016</h2>
   <div class="informativa-stampa">
-    <p>Il titolare del trattamento e Giovannoni Luca, con domicilio eletto in Roma, Vicolo della Serpe 81, 00149 Roma, contattabile via pec a l.giovannoni@cdlrmpec.it o mail a studio@giovannoniluca.it. Il trattamento e finalizzato alla corretta esecuzione dell'incarico professionale ricevuto e all'adempimento degli obblighi fiscali, contabili e normativi previsti per il professionista. I dati sono trattati con archivi cartacei e informatici, con modalita strettamente necessarie a tali finalita, e conservati per la durata del contratto e per il successivo periodo previsto dagli obblighi di conservazione. I dati potranno essere comunicati a consulenti, commercialisti, legali, istituti bancari e assicurativi coinvolti nella pratica, e ad autorita giudiziarie o amministrative per obblighi di legge, senza alcuna diffusione ne processo decisionale automatizzato. L'interessato ha diritto di accesso, rettifica, cancellazione, limitazione, portabilita, opposizione, revoca del consenso, e puo proporre reclamo al Garante Privacy, www.garanteprivacy.it.</p>
+    ${(testoInformativaCorrente || '').split('\n\n').filter(p => p.trim()).map(p => `<p>${p}</p>`).join('')}
   </div>
 
   <div class="riga" style="margin-top:16px">Io sottoscritto/a <span class="linea">${nominativo}</span></div>
