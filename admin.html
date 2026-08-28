@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 19 -->
+<!-- rev. 20 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -111,7 +111,7 @@
 </style>
 </head>
 <body>
-<div class="versione">rev. 19</div>
+<div class="versione">rev. 20</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -160,6 +160,8 @@
       <p class="nota">
         Compaiono qui solo gli iscritti con il campo Colf e badanti impostato su Si. Nel testo puoi usare segnaposto come <code>{{Nome}}</code>, con il nome esatto della colonna tra doppie graffe, verranno sostituiti con il dato di ogni iscritto.
       </p>
+      <button class="secondario" onclick="caricaSchedaEmail()">Aggiorna elenco</button>
+      <br><br>
       <label>Colonna con l'indirizzo email<br>
         <select id="colonnaEmail" onchange="disegnaDestinatari()"></select>
       </label>
@@ -601,9 +603,7 @@
   }
 
   async function caricaSchedaEmail() {
-    if (!ultimeIscrizioni.intestazioni || ultimeIscrizioni.intestazioni.length === 0) {
-      await caricaIscrizioni();
-    }
+    await caricaIscrizioni();
     const selColonna = document.getElementById('colonnaEmail');
     const scelta = selColonna.value;
     selColonna.innerHTML = ultimeIscrizioni.intestazioni.map(h => `<option value="${h}">${h}</option>`).join('');
