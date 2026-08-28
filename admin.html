@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 17 -->
+<!-- rev. 18 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -111,7 +111,7 @@
 </style>
 </head>
 <body>
-<div class="versione">rev. 17</div>
+<div class="versione">rev. 18</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -510,6 +510,8 @@
     font-size: 9.5px; letter-spacing: .05em; color: #666;
   }
   th:last-child, td:last-child { width: 70px; text-align: center; }
+  .tabella-bordata, .tabella-bordata th, .tabella-bordata td { border: 1px solid #333; }
+  .tabella-bordata th { background: #fff; text-transform: none; font-size: 12px; letter-spacing: normal; color: #111; }
   .tabella-ritiro td { height: 30px; }
 
   .testo-mandato { text-align: justify; margin: 4px 0 0; }
@@ -538,7 +540,7 @@
 
   <div class="blocco">
     <h2>Documenti consegnati</h2>
-    <table>
+    <table class="tabella-bordata">
       <tr><th>Documento</th><th>Visto</th></tr>
       ${righeChecklist.map(voce => `<tr><td>${voce}</td><td></td></tr>`).join('')}
       <tr><td>&nbsp;</td><td></td></tr>
@@ -580,7 +582,7 @@
 
   <div class="blocco">
     <h2>Ritiro documenti in data ..........................</h2>
-    <table class="tabella-ritiro">
+    <table class="tabella-bordata tabella-ritiro">
       <tr><td>&nbsp;</td><td>&nbsp;</td></tr>
       <tr><td>&nbsp;</td><td>&nbsp;</td></tr>
     </table>
