@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Iscrizione CAF Gianicolense</title>
-<!-- rev. 13 -->
+<!-- rev. 14 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -105,10 +105,31 @@
   .nota-cf {
     font-size: 12px; margin-top: 6px; color: var(--muted);
   }
+  .campo-comune { position: relative; }
+  .suggerimenti-comune {
+    position: absolute; left: 0; right: 0; top: 100%; margin-top: 2px;
+    background: var(--card); border: 1px solid var(--line);
+    max-height: 220px; overflow-y: auto; z-index: 20;
+    box-shadow: 0 12px 24px -12px rgba(28, 31, 38, 0.35); display: none;
+  }
+  .suggerimenti-comune.visibile { display: block; }
+  .suggerimenti-comune div {
+    padding: 9px 12px; font-size: 13.5px; cursor: pointer;
+  }
+  .suggerimenti-comune div:hover, .suggerimenti-comune div.attivo {
+    background: var(--paper);
+  }
+  .riga-cf { display: flex; gap: 8px; align-items: stretch; }
+  .riga-cf input { flex: 1; }
+  .btn-calcola {
+    margin-top: 6px; width: auto; padding: 0 16px; font-size: 13px;
+    background: #6b6a63; white-space: nowrap;
+  }
+  .btn-calcola:hover { background: #55544e; }
 </style>
 </head>
 <body>
-<div class="versione">rev. 13</div>
+<div class="versione">rev. 14</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -121,7 +142,6 @@
       <h2>Dati anagrafici</h2>
       <div id="campiFissi"></div>
     </div>
-    <datalist id="listaComuni"></datalist>
 
     <div class="sezione" id="sezioneDinamica">
       <div id="campiDinamici"></div>
@@ -220,13 +240,22 @@
       input.title = 'Il codice fiscale deve avere 16 caratteri, nel formato standard, es. RSSMRA80A01H501Z';
       input.placeholder = 'Compilato automaticamente dai dati sopra';
       input.addEventListener('input', () => { input.value = input.value.toUpperCase(); });
+      const rigaInput = document.createElement('div');
+      rigaInput.className = 'riga-cf';
+      const btnCalcola = document.createElement('button');
+      btnCalcola.type = 'button';
+      btnCalcola.className = 'btn-calcola';
+      btnCalcola.textContent = 'Calcola';
+      btnCalcola.id = 'btnCalcolaCF';
+      rigaInput.appendChild(input);
+      rigaInput.appendChild(btnCalcola);
       const nota = document.createElement('div');
       nota.className = 'nota-cf';
-      nota.textContent = 'Si compila da solo in base a cognome, nome, sesso, data e comune di nascita. Puoi comunque correggerlo a mano.';
+      nota.textContent = 'Si compila da solo in base a cognome, nome, sesso, data e comune di nascita, oppure premi Calcola. Puoi comunque correggerlo a mano.';
       const avviso = document.createElement('div');
       avviso.className = 'avviso-cf';
       avviso.id = 'avvisoCF';
-      wrapper.appendChild(input);
+      wrapper.appendChild(rigaInput);
       wrapper.appendChild(nota);
       wrapper.appendChild(avviso);
       return wrapper;
@@ -235,13 +264,86 @@
       input.title = 'Inserisci un indirizzo email valido, es. nome@esempio.it';
       input.placeholder = 'nome@esempio.it';
     } else if (campo.tipo === 'testo' && /(comune|luogo) di (nascita|residenza)/.test(chiave)) {
-      input.setAttribute('list', 'listaComuni');
       input.placeholder = 'Inizia a scrivere il nome del comune...';
       input.autocomplete = 'off';
+      const contenitore = document.createElement('div');
+      contenitore.className = 'campo-comune';
+      const suggerimenti = document.createElement('div');
+      suggerimenti.className = 'suggerimenti-comune';
+      collegaSuggerimentiComune(input, suggerimenti);
+      contenitore.appendChild(input);
+      contenitore.appendChild(suggerimenti);
+      wrapper.appendChild(contenitore);
+      return wrapper;
     }
 
     wrapper.appendChild(input);
     return wrapper;
+  }
+
+  // Menu di suggerimenti filtrato mentre si scrive, al posto del menu
+  // nativo del browser, cosi il valore scelto corrisponde sempre a un
+  // comune vero, con provincia, ed e sempre chiaro cosa selezionare.
+  function collegaSuggerimentiComune(input, box) {
+    const MAX_RISULTATI = 8;
+    let indiceAttivo = -1;
+
+    function elenca(testo) {
+      box.innerHTML = '';
+      indiceAttivo = -1;
+      if (!testo || testo.length < 2 || typeof COMUNI_CATASTALI === 'undefined') {
+        box.classList.remove('visibile');
+        return;
+      }
+      const cercato = testo.toLowerCase();
+      const risultati = Object.keys(COMUNI_CATASTALI)
+        .filter(nome => nome.toLowerCase().includes(cercato))
+        .sort((a, b) => {
+          const ai = a.toLowerCase().indexOf(cercato);
+          const bi = b.toLowerCase().indexOf(cercato);
+          return ai - bi || a.length - b.length;
+        })
+        .slice(0, MAX_RISULTATI);
+      if (risultati.length === 0) {
+        box.classList.remove('visibile');
+        return;
+      }
+      risultati.forEach(nome => {
+        const voce = document.createElement('div');
+        voce.textContent = nome;
+        voce.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          input.value = nome;
+          box.classList.remove('visibile');
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        box.appendChild(voce);
+      });
+      box.classList.add('visibile');
+    }
+
+    input.addEventListener('input', () => elenca(input.value));
+    input.addEventListener('focus', () => { if (input.value) elenca(input.value); });
+    input.addEventListener('blur', () => box.classList.remove('visibile'));
+    input.addEventListener('keydown', (e) => {
+      const voci = box.querySelectorAll('div');
+      if (!voci.length) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        indiceAttivo = Math.min(indiceAttivo + 1, voci.length - 1);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        indiceAttivo = Math.max(indiceAttivo - 1, 0);
+      } else if (e.key === 'Enter' && indiceAttivo >= 0) {
+        e.preventDefault();
+        voci[indiceAttivo].dispatchEvent(new Event('mousedown'));
+        return;
+      } else {
+        return;
+      }
+      voci.forEach((v, i) => v.classList.toggle('attivo', i === indiceAttivo));
+    });
   }
 
   // --- Calcolo del codice fiscale, per confronto con quanto digitato ---
@@ -249,17 +351,6 @@
   // nascita. Se il comune indicato non e tra quelli italiani noti (per
   // esempio nascite all'estero), il controllo viene saltato in silenzio,
   // senza generare falsi avvisi.
-
-  function popolaListaComuni() {
-    const lista = document.getElementById('listaComuni');
-    if (!lista || typeof COMUNI_CATASTALI === 'undefined') return;
-    lista.innerHTML = '';
-    Object.keys(COMUNI_CATASTALI).forEach(nomeComune => {
-      const opt = document.createElement('option');
-      opt.value = nomeComune;
-      lista.appendChild(opt);
-    });
-  }
 
   function normalizzaTesto(s) {
     return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z]/g, '');
@@ -372,6 +463,24 @@
       inputCF.dataset.manuale = 'true';
       confrontaOAggiorna(false);
     });
+
+    // Pulsante Calcola: forza il calcolo e riscrive il campo anche se in
+    // precedenza era stato modificato a mano, utile se per qualche motivo
+    // la compilazione automatica non fosse partita da sola.
+    const btnCalcola = document.getElementById('btnCalcolaCF');
+    if (btnCalcola) {
+      btnCalcola.addEventListener('click', () => {
+        const atteso = calcolaCodiceFiscale(datiAnagrafici());
+        if (!atteso) {
+          avviso.textContent = 'Compila cognome, nome, sesso, data e comune di nascita, scegliendo il comune dal menu di suggerimenti, poi premi di nuovo Calcola.';
+          avviso.classList.add('visibile');
+          return;
+        }
+        inputCF.value = atteso;
+        inputCF.dataset.manuale = 'false';
+        nascondiAvviso();
+      });
+    }
   }
 
   async function caricaInformativa() {
@@ -447,7 +556,6 @@
     }
   });
 
-  popolaListaComuni();
   caricaForm();
   caricaInformativa();
 </script>
