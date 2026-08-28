@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Iscrizione CAF Gianicolense</title>
-<!-- rev. 9 -->
+<!-- rev. 10 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -107,7 +107,7 @@
 </style>
 </head>
 <body>
-<div class="versione">rev. 9</div>
+<div class="versione">rev. 10</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -159,6 +159,7 @@
     wrapper.appendChild(label);
 
     let input;
+    const chiave = ((campo.nome || '') + ' ' + (campo.etichetta || '')).toLowerCase();
     if (campo.tipo === 'select') {
       input = document.createElement('select');
       const opzioni = (campo.opzioni || '').split(',').map(o => o.trim()).filter(Boolean);
@@ -175,7 +176,9 @@
     } else if (campo.tipo === 'textarea') {
       input = document.createElement('textarea');
       input.rows = 3;
-    } else if (campo.tipo === 'data') {
+    } else if (campo.tipo === 'data' || chiave.includes('data di nascita')) {
+      // Il calendario si applica sempre alla data di nascita, anche se il
+      // tipo salvato nel foglio Campi e ancora "Testo".
       input = document.createElement('input');
       input.type = 'date';
     } else {
@@ -188,7 +191,6 @@
 
     // Riconosce automaticamente alcuni campi in base al nome interno o
     // all'etichetta, e applica il formato o l'aiuto corretto.
-    const chiave = ((campo.nome || '') + ' ' + (campo.etichetta || '')).toLowerCase();
     if (campo.tipo === 'testo' && chiave.includes('codice fiscale')) {
       input.pattern = '[A-Za-z]{6}[0-9]{2}[A-Za-z][0-9]{2}[A-Za-z][0-9]{3}[A-Za-z]';
       input.maxLength = 16;
