@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Iscrizione CAF Gianicolense</title>
-<!-- rev. 11 -->
+<!-- rev. 13 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -67,19 +67,20 @@
   .checkbox-row { display: flex; align-items: center; margin-top: 20px; gap: 10px; }
   .checkbox-row input { margin: 0; width: 17px; height: 17px; accent-color: var(--blue); flex-shrink: 0; }
   .checkbox-row label { margin-top: 0; font-weight: 500; }
-  .informativa {
+  .sezione {
     margin-top: 30px; padding-top: 22px; border-top: 1px solid var(--line);
   }
-  .informativa h2 {
-    font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 17px; margin: 0 0 10px;
+  .sezione:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+  .sezione h2 {
+    font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 17px; margin: 0 0 4px;
   }
+  .informativa h2 { margin-bottom: 10px; }
   .testo-informativa {
     max-height: 220px; overflow-y: auto; font-size: 12.5px; line-height: 1.6; color: var(--muted);
     background: #fdfcfa; border: 1px solid var(--line); padding: 14px 16px; margin-bottom: 4px;
   }
   .testo-informativa p { margin: 0 0 10px; }
   .testo-informativa p:last-child { margin-bottom: 0; }
-  .testo-informativa strong { color: var(--ink); }
   .informativa .checkbox-row { align-items: flex-start; }
   .informativa .checkbox-row input { margin-top: 3px; }
   .informativa .checkbox-row label { font-size: 13px; font-weight: 500; line-height: 1.5; }
@@ -107,7 +108,7 @@
 </style>
 </head>
 <body>
-<div class="versione">rev. 11</div>
+<div class="versione">rev. 13</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -116,10 +117,17 @@
   <h1>Modulo di iscrizione</h1>
   <p class="sottotitolo">Compila i campi qui sotto per completare la tua iscrizione al CAF Gianicolense.</p>
   <form id="form">
-    <div id="campiDinamici"></div>
+    <div class="sezione">
+      <h2>Dati anagrafici</h2>
+      <div id="campiFissi"></div>
+    </div>
     <datalist id="listaComuni"></datalist>
 
-    <div class="informativa">
+    <div class="sezione" id="sezioneDinamica">
+      <div id="campiDinamici"></div>
+    </div>
+
+    <div class="sezione informativa">
       <h2>Informativa privacy</h2>
       <div class="testo-informativa" id="testoInformativa">
         <p>Caricamento dell'informativa in corso...</p>
@@ -138,7 +146,22 @@
   // Sostituisci con l'URL del tuo Web App Apps Script, quello che finisce con /exec
   const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbwfARR9qd6ljdrmnar5JU-IejRR3S_6ZfIZw-lWsz8jDk9PBkMEd9uexc0F5Fd2t02VXw/exec';
 
+  // Dati anagrafici fondamentali, sempre presenti nel modulo e non
+  // rimovibili dal pannello admin, necessari al calcolo del codice
+  // fiscale. Tutto il resto (indirizzo, telefono, email, ecc.) resta
+  // configurabile dalla scheda Gestione campi.
+  const CAMPI_FISSI = [
+    { nome: 'cognome', etichetta: 'Cognome', tipo: 'testo', obbligatorio: true },
+    { nome: 'nome', etichetta: 'Nome', tipo: 'testo', obbligatorio: true },
+    { nome: 'sesso', etichetta: 'Sesso', tipo: 'select', opzioni: 'M,F', obbligatorio: true },
+    { nome: 'data_nascita', etichetta: 'Data di nascita', tipo: 'data', obbligatorio: true },
+    { nome: 'comune_nascita', etichetta: 'Comune di nascita', tipo: 'testo', obbligatorio: true },
+    { nome: 'comune_residenza', etichetta: 'Comune di residenza', tipo: 'testo', obbligatorio: false },
+    { nome: 'codice_fiscale', etichetta: 'Codice fiscale', tipo: 'testo', obbligatorio: true }
+  ];
+
   const formEl = document.getElementById('form');
+  const camposFissiEl = document.getElementById('campiFissi');
   const camposEl = document.getElementById('campiDinamici');
   const esitoEl = document.getElementById('esito');
   let campiCorrenti = [];
@@ -178,7 +201,7 @@
       input.rows = 3;
     } else if (campo.tipo === 'data' || chiave.includes('data di nascita')) {
       // Il calendario si applica sempre alla data di nascita, anche se il
-      // tipo salvato nel foglio Campi e ancora "Testo".
+      // tipo salvato nel foglio Campi fosse ancora "Testo".
       input = document.createElement('input');
       input.type = 'date';
     } else {
@@ -196,9 +219,7 @@
       input.maxLength = 16;
       input.title = 'Il codice fiscale deve avere 16 caratteri, nel formato standard, es. RSSMRA80A01H501Z';
       input.placeholder = 'Compilato automaticamente dai dati sopra';
-      input.addEventListener('input', () => {
-        input.value = input.value.toUpperCase();
-      });
+      input.addEventListener('input', () => { input.value = input.value.toUpperCase(); });
       const nota = document.createElement('div');
       nota.className = 'nota-cf';
       nota.textContent = 'Si compila da solo in base a cognome, nome, sesso, data e comune di nascita. Puoi comunque correggerlo a mano.';
@@ -213,7 +234,7 @@
       input.type = 'email';
       input.title = 'Inserisci un indirizzo email valido, es. nome@esempio.it';
       input.placeholder = 'nome@esempio.it';
-    } else if (campo.tipo === 'testo' && chiave.includes('comune di nascita')) {
+    } else if (campo.tipo === 'testo' && /(comune|luogo) di (nascita|residenza)/.test(chiave)) {
       input.setAttribute('list', 'listaComuni');
       input.placeholder = 'Inizia a scrivere il nome del comune...';
       input.autocomplete = 'off';
@@ -305,56 +326,37 @@
     return quindici + carattereControllo(quindici);
   }
 
-  // Cerca fra i campi renderizzati quello la cui etichetta o nome interno
-  // corrisponde a una delle parole chiave, per adattarsi a come l'admin
-  // ha configurato il form. Prova prima una corrispondenza esatta, per non
-  // confondere ad esempio "Nome" con "Cognome".
-  function trovaCampoInput(parole) {
-    for (const c of campiCorrenti) {
-      const nome = (c.nome || '').toLowerCase();
-      const etichetta = (c.etichetta || '').toLowerCase();
-      if (parole.includes(nome) || parole.includes(etichetta)) return document.getElementById('c_' + c.nome);
-    }
-    for (const c of campiCorrenti) {
-      const chiave = ((c.nome || '') + ' ' + (c.etichetta || '')).toLowerCase();
-      if (parole.some(p => chiave.includes(p))) return document.getElementById('c_' + c.nome);
-    }
-    return null;
-  }
-
+  // I dati anagrafici sono campi fissi con id noto: niente ricerca, si
+  // aggancia direttamente. Finche il codice fiscale non viene toccato a
+  // mano, si ricompila da solo a ogni modifica di uno di questi campi.
+  // Da quel momento in poi resta libero, e si limita a segnalare
+  // un'eventuale incongruenza.
   function collegaControlloCodiceFiscale() {
-    const inputCognome = trovaCampoInput(['cognome']);
-    const inputNome = trovaCampoInput(['nome']);
-    const inputSesso = trovaCampoInput(['sesso']);
-    const inputData = trovaCampoInput(['data di nascita']);
-    const inputComune = trovaCampoInput(['comune di nascita', 'luogo di nascita']);
-    const inputCF = trovaCampoInput(['codice fiscale']);
+    const inputCognome = document.getElementById('c_cognome');
+    const inputNome = document.getElementById('c_nome');
+    const inputSesso = document.getElementById('c_sesso');
+    const inputData = document.getElementById('c_data_nascita');
+    const inputComune = document.getElementById('c_comune_nascita');
+    const inputCF = document.getElementById('c_codice_fiscale');
     const avviso = document.getElementById('avvisoCF');
     if (!inputCognome || !inputNome || !inputSesso || !inputData || !inputComune || !inputCF || !avviso) return;
 
+    const datiAnagrafici = () => ({
+      cognome: inputCognome.value,
+      nome: inputNome.value,
+      sesso: inputSesso.value,
+      dataNascita: inputData.value,
+      comuneNascita: inputComune.value
+    });
     const mostraAvviso = (atteso) => {
       avviso.textContent = `Il codice fiscale digitato non corrisponde ai dati inseriti. In base a cognome, nome, sesso, data e comune di nascita dovrebbe essere ${atteso}.`;
       avviso.classList.add('visibile');
     };
     const nascondiAvviso = () => avviso.classList.remove('visibile');
-
-    // Cambia uno qualsiasi dei dati anagrafici: se il codice fiscale non e
-    // ancora stato toccato a mano dalla persona, lo ricompila da solo.
-    // Se invece e stato modificato a mano, non lo tocca piu, e si limita
-    // a segnalare un'eventuale incongruenza.
-    const aggiornaDaAnagrafica = () => {
-      const atteso = calcolaCodiceFiscale({
-        cognome: inputCognome.value,
-        nome: inputNome.value,
-        sesso: inputSesso.value,
-        dataNascita: inputData.value,
-        comuneNascita: inputComune.value
-      });
-      if (inputCF.dataset.manuale !== 'true') {
-        if (atteso) {
-          inputCF.value = atteso;
-          nascondiAvviso();
-        }
+    const confrontaOAggiorna = (sovrascriviSeAutomatico) => {
+      const atteso = calcolaCodiceFiscale(datiAnagrafici());
+      if (sovrascriviSeAutomatico && inputCF.dataset.manuale !== 'true') {
+        if (atteso) { inputCF.value = atteso; nascondiAvviso(); }
         return;
       }
       const digitato = (inputCF.value || '').trim().toUpperCase();
@@ -362,27 +364,14 @@
       if (digitato !== atteso) mostraAvviso(atteso); else nascondiAvviso();
     };
 
-    // La persona scrive o corregge il codice fiscale a mano: da questo
-    // momento il campo diventa libero e non viene piu sovrascritto.
-    const alModificaManuale = () => {
-      inputCF.dataset.manuale = 'true';
-      const atteso = calcolaCodiceFiscale({
-        cognome: inputCognome.value,
-        nome: inputNome.value,
-        sesso: inputSesso.value,
-        dataNascita: inputData.value,
-        comuneNascita: inputComune.value
-      });
-      const digitato = (inputCF.value || '').trim().toUpperCase();
-      if (!atteso || !digitato) { nascondiAvviso(); return; }
-      if (digitato !== atteso) mostraAvviso(atteso); else nascondiAvviso();
-    };
-
     [inputCognome, inputNome, inputSesso, inputData, inputComune].forEach(el => {
-      el.addEventListener('input', aggiornaDaAnagrafica);
-      el.addEventListener('change', aggiornaDaAnagrafica);
+      el.addEventListener('input', () => confrontaOAggiorna(true));
+      el.addEventListener('change', () => confrontaOAggiorna(true));
     });
-    inputCF.addEventListener('input', alModificaManuale);
+    inputCF.addEventListener('input', () => {
+      inputCF.dataset.manuale = 'true';
+      confrontaOAggiorna(false);
+    });
   }
 
   async function caricaInformativa() {
@@ -403,18 +392,25 @@
   }
 
   async function caricaForm() {
+    // Campi fissi, sempre presenti, indipendenti dal backend
+    camposFissiEl.innerHTML = '';
+    CAMPI_FISSI.forEach(c => camposFissiEl.appendChild(creaCampo(c)));
+    collegaControlloCodiceFiscale();
+
+    // Campi aggiuntivi, configurati dall'admin
     try {
       const res = await fetch(BACKEND_URL + '?action=getForm');
       const data = await res.json();
       campiCorrenti = data.campi || [];
       camposEl.innerHTML = '';
       campiCorrenti.forEach(c => camposEl.appendChild(creaCampo(c)));
+      document.getElementById('sezioneDinamica').style.display = campiCorrenti.length ? '' : 'none';
       const btn = document.createElement('button');
       btn.type = 'submit';
       btn.textContent = 'Invia iscrizione';
       formEl.appendChild(btn);
-      collegaControlloCodiceFiscale();
     } catch (err) {
+      document.getElementById('sezioneDinamica').style.display = 'none';
       esitoEl.innerHTML = '<span class="errore">Errore nel caricamento del modulo. Riprova più tardi.</span>';
     }
   }
@@ -426,7 +422,7 @@
     esitoEl.textContent = '';
 
     const dati = {};
-    campiCorrenti.forEach(c => {
+    [...CAMPI_FISSI, ...campiCorrenti].forEach(c => {
       const el = document.getElementById('c_' + c.nome);
       dati[c.etichetta] = c.tipo === 'checkbox' ? (el.checked ? 'Si' : 'No') : el.value;
     });
