@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 14 -->
+<!-- rev. 15 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -111,7 +111,7 @@
 </style>
 </head>
 <body>
-<div class="versione">rev. 14</div>
+<div class="versione">rev. 15</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -149,6 +149,9 @@
       <button onclick="caricaIscrizioni()">Aggiorna elenco</button>
       <button onclick="scaricaExcel()">Scarica Excel</button>
       <p class="nota" style="margin-top:10px">Il pulsante Stampa mandato apre in una nuova scheda il modulo di mandato gia compilato con i dati dell'iscritto, pronto per la stampa e la firma a mano.</p>
+      <label style="margin-top:14px">Cerca, per cognome, nome, data di nascita o qualunque altro dato<br>
+        <input type="text" id="cercaIscrizioni" placeholder="Scrivi per filtrare..." oninput="disegnaTabellaIscrizioni()" style="max-width:340px">
+      </label>
       <div id="tabellaIscrizioni"></div>
     </div>
 
@@ -351,17 +354,53 @@
       body: JSON.stringify({ action: 'getSubmissions', password })
     });
     ultimeIscrizioni = await res.json();
+    disegnaTabellaIscrizioni();
+  }
+
+  // Ridisegna la tabella a partire dai dati gia scaricati, senza una
+  // nuova chiamata al backend: applica la formattazione italiana della
+  // data di nascita, nasconde la colonna Timestamp, ordina per cognome e
+  // nome, e filtra in base al testo cercato. L'indice passato al pulsante
+  // Stampa mandato resta sempre quello vero dentro ultimeIscrizioni.righe,
+  // cosi la stampa punta sempre alla persona giusta anche a tabella
+  // filtrata o riordinata.
+  function disegnaTabellaIscrizioni() {
     const div = document.getElementById('tabellaIscrizioni');
     if (!ultimeIscrizioni.intestazioni || ultimeIscrizioni.intestazioni.length === 0) {
       div.innerHTML = '<p>Nessuna iscrizione ancora.</p>';
       return;
     }
-    let html = '<table><tr>' + ultimeIscrizioni.intestazioni.map(h => `<th>${h}</th>`).join('') + '<th>Azioni</th></tr>';
-    ultimeIscrizioni.righe.forEach((r, i) => {
-      html += '<tr>' + r.map(v => `<td>${v}</td>`).join('') + `<td><button class="secondario" onclick="stampaMandato(${i})">Stampa mandato</button></td></tr>`;
+    const intestazioni = ultimeIscrizioni.intestazioni;
+    const idxTimestamp = intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'timestamp');
+    const idxDataNascita = intestazioni.findIndex(h => h && h.toLowerCase().includes('data di nascita'));
+    const idxCognome = intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'cognome');
+    const idxNome = intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'nome');
+    const colonneVisibili = intestazioni.map((h, i) => i).filter(i => i !== idxTimestamp);
+
+    const formattaCella = (valore, idx) => idx === idxDataNascita ? formattaData(valore) : valore;
+
+    let righe = ultimeIscrizioni.righe.map((r, indiceOriginale) => ({ r, indiceOriginale }));
+
+    const testoCercato = (document.getElementById('cercaIscrizioni').value || '').trim().toLowerCase();
+    if (testoCercato) {
+      righe = righe.filter(({ r }) =>
+        colonneVisibili.some(i => String(formattaCella(r[i], i) || '').toLowerCase().includes(testoCercato))
+      );
+    }
+
+    righe.sort((a, b) => {
+      const chiave = (x) => ((idxCognome >= 0 ? x.r[idxCognome] : '') + ' ' + (idxNome >= 0 ? x.r[idxNome] : '')).toLowerCase();
+      return chiave(a).localeCompare(chiave(b), 'it');
+    });
+
+    let html = '<table><tr>' + colonneVisibili.map(i => `<th>${intestazioni[i]}</th>`).join('') + '<th>Azioni</th></tr>';
+    righe.forEach(({ r, indiceOriginale }) => {
+      html += '<tr>' + colonneVisibili.map(i => `<td>${formattaCella(r[i], i) || ''}</td>`).join('') +
+        `<td><button class="secondario" onclick="stampaMandato(${indiceOriginale})">Stampa mandato</button></td></tr>`;
     });
     html += '</table>';
     div.innerHTML = '<div class="scroll-tabella">' + html + '</div>';
+    if (righe.length === 0) div.innerHTML += '<p class="nota">Nessun risultato per questa ricerca.</p>';
   }
 
   // Cerca in una riga il valore della prima colonna la cui intestazione
