@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 16 -->
+<!-- rev. 17 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -111,7 +111,7 @@
 </style>
 </head>
 <body>
-<div class="versione">rev. 16</div>
+<div class="versione">rev. 17</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -467,88 +467,127 @@
     // Le tre righe di contatto/osservazioni compaiono solo se il dato e
     // stato effettivamente compilato nel form, altrimenti la riga non
     // viene stampata del tutto.
-    const righeContatto = [
-      ['Recapito telefonico:', telefono],
-      ['Mail:', email],
-      ['Osservazioni:', osservazioni]
+    const richiestaDati = [
+      ['Per la seguente richiesta', richiesta],
+      ['Sig./Sig.ra', nominativo],
+      ['Indirizzo', indirizzo],
+      ['Recapito telefonico', telefono],
+      ['Mail', email],
+      ['Osservazioni', osservazioni]
     ].filter(([, valore]) => valore)
-     .map(([etichetta, valore]) => `<div class="riga"><strong>${etichetta}</strong> <span class="linea">${valore}</span></div>`)
+     .map(([etichetta, valore]) => `<div class="dato"><span class="etichetta">${etichetta}</span><span class="valore">${valore}</span></div>`)
      .join('');
 
     const html = `<!DOCTYPE html>
 <html lang="it"><head><meta charset="UTF-8"><title>Mandato, ${nominativo}</title>
 <style>
-  body { font-family: Georgia, 'Times New Roman', serif; font-size: 13px; color: #111; max-width: 750px; margin: 30px auto; line-height: 1.5; }
-  .logo-stampa { display: block; max-width: 220px; margin: 0 auto 16px; }
-  h1 { font-size: 16px; text-align: center; margin-bottom: 2px; }
-  h2 { font-size: 13px; margin: 22px 0 6px; border-top: 1px solid #999; padding-top: 12px; }
-  .riga { margin: 8px 0; }
-  .riga span.linea { display: inline-block; border-bottom: 1px solid #333; min-width: 220px; padding: 0 4px; }
-  table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-  th, td { border: 1px solid #333; padding: 5px 8px; font-size: 12px; text-align: left; }
-  th:last-child, td:last-child { width: 60px; text-align: center; }
-  .box-firma { display: flex; justify-content: space-between; margin-top: 30px; }
-  .informativa-stampa { font-size: 10.5px; line-height: 1.5; text-align: justify; margin-top: 10px; }
-  .informativa-stampa p { margin: 0 0 6px; }
-  .pagina-successiva { page-break-before: always; break-before: page; padding-top: 20px; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: Helvetica, Arial, sans-serif; font-size: 12.5px; color: #1a1a1a;
+    max-width: 720px; margin: 28px auto; line-height: 1.55;
+  }
+  .intestazione { text-align: center; margin-bottom: 22px; }
+  .logo-stampa { display: block; max-width: 190px; margin: 0 auto 12px; }
+  h1 {
+    font-size: 15px; letter-spacing: .04em; margin: 0 0 4px; text-transform: uppercase;
+  }
+  .sottotitolo-stampa { font-size: 11.5px; color: #666; margin: 0; }
+  .divisore-stampa { border: none; border-top: 1px solid #ccc; margin: 18px 0 0; }
+
+  .blocco { margin: 22px 0; }
+  .blocco h2 {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: #555;
+    margin: 0 0 8px; padding-bottom: 6px; border-bottom: 1px solid #ccc; font-weight: 700;
+  }
+  .dato { display: flex; padding: 7px 2px; border-bottom: 1px solid #eee; }
+  .dato .etichetta { width: 190px; flex-shrink: 0; color: #666; }
+  .dato .valore { flex: 1; font-weight: 500; }
+
+  table { width: 100%; border-collapse: collapse; margin: 2px 0; }
+  th, td { border-bottom: 1px solid #e2e2e2; padding: 7px 9px; font-size: 11.5px; text-align: left; }
+  th {
+    background: #f7f6f4; font-weight: 700; text-transform: uppercase;
+    font-size: 9.5px; letter-spacing: .05em; color: #666;
+  }
+  th:last-child, td:last-child { width: 70px; text-align: center; }
   .tabella-ritiro td { height: 30px; }
+
+  .testo-mandato { text-align: justify; margin: 4px 0 0; }
+  .informativa-stampa { font-size: 10.5px; line-height: 1.6; text-align: justify; color: #333; }
+  .informativa-stampa p { margin: 0 0 8px; }
+
+  .firme { display: flex; justify-content: space-between; gap: 50px; margin-top: 36px; }
+  .firma-riga { flex: 1; display: flex; align-items: flex-end; gap: 8px; font-size: 10.5px; color: #666; }
+  .firma-riga .linea-firma { flex: 1; border-bottom: 1px solid #333; height: 1px; margin-bottom: 2px; }
+
+  .pagina-successiva { page-break-before: always; break-before: page; padding-top: 6px; }
   @media print { body { margin: 10mm; } }
 </style></head>
 <body>
-  <img class="logo-stampa" src="${LOGO_MANDATO}" alt="CAF Gianicolense">
-  <h1>MANDATO AD OPERARE, CONSEGNA DOCUMENTI</h1>
-  <p style="text-align:center">CAF Gianicolense</p>
+  <div class="intestazione">
+    <img class="logo-stampa" src="${LOGO_MANDATO}" alt="CAF Gianicolense">
+    <h1>Mandato ad operare, consegna documenti</h1>
+    <p class="sottotitolo-stampa">CAF Gianicolense</p>
+  </div>
+  <hr class="divisore-stampa">
 
-  <div class="riga"><strong>Per la seguente richiesta:</strong> <span class="linea">${richiesta}</span></div>
-  <div class="riga"><strong>Sig./Sig.ra:</strong> <span class="linea">${nominativo}</span></div>
-  <div class="riga"><strong>Indirizzo:</strong> <span class="linea">${indirizzo}</span></div>
+  <div class="blocco">
+    <h2>Dati della pratica</h2>
+    ${richiestaDati}
+  </div>
 
-  ${righeContatto}
+  <div class="blocco">
+    <h2>Documenti consegnati</h2>
+    <table>
+      <tr><th>Documento</th><th>Visto</th></tr>
+      ${righeChecklist.map(voce => `<tr><td>${voce}</td><td></td></tr>`).join('')}
+      <tr><td>&nbsp;</td><td></td></tr>
+      <tr><td>&nbsp;</td><td></td></tr>
+    </table>
+  </div>
 
-  <h2>Documenti consegnati</h2>
-  <table>
-    <tr><th>Documento</th><th>Visto</th></tr>
-    ${righeChecklist.map(voce => `<tr><td>${voce}</td><td></td></tr>`).join('')}
-    <tr><td>&nbsp;</td><td></td></tr>
-    <tr><td>&nbsp;</td><td></td></tr>
-  </table>
-
-  <h2>Mandato</h2>
-  <p>Con il presente atto io sottoscritto/a <span class="linea">${nominativo}</span>
-  nato/a a <span class="linea">${luogoNascita}</span> il <span class="linea">${dataNascita}</span>
-  codice fiscale <span class="linea">${codiceFiscale}</span>,
-  conferisco mandato al <strong>CAF Gianicolense</strong> a rappresentarmi ed assistermi in merito alla pratica indicata in calce.</p>
-
-  <div class="box-firma">
-    <div>Data _______________________</div>
-    <div>Firma _______________________</div>
+  <div class="blocco">
+    <h2>Mandato</h2>
+    <p class="testo-mandato">Con il presente atto io sottoscritto/a <strong>${nominativo}</strong>,
+    nato/a a ${luogoNascita} il ${dataNascita}, codice fiscale <strong>${codiceFiscale}</strong>,
+    conferisco mandato al <strong>CAF Gianicolense</strong> a rappresentarmi ed assistermi in merito alla pratica indicata in calce.</p>
+    <div class="firme">
+      <div class="firma-riga"><span>Data</span><span class="linea-firma"></span></div>
+      <div class="firma-riga"><span>Firma</span><span class="linea-firma"></span></div>
+    </div>
   </div>
 
   <div class="pagina-successiva">
-    <h2 style="margin-top:0;border-top:none;padding-top:0">Informativa privacy, art. 13 Regolamento europeo 679/2016</h2>
-    <div class="informativa-stampa">
-      ${(testoInformativaCorrente || '').split('\n\n').filter(p => p.trim()).map(p => `<p>${p}</p>`).join('')}
+    <div class="blocco">
+      <h2>Informativa privacy, art. 13 Regolamento europeo 679/2016</h2>
+      <div class="informativa-stampa">
+        ${(testoInformativaCorrente || '').split('\n\n').filter(p => p.trim()).map(p => `<p>${p}</p>`).join('')}
+      </div>
     </div>
 
-    <div class="riga" style="margin-top:16px">Io sottoscritto/a <span class="linea">${nominativo}</span></div>
-    <div class="riga">Codice fiscale <span class="linea">${codiceFiscale}</span></div>
-    <p>acconsente al trattamento dei dati per le finalita sopra descritte: <strong>${consenso === 'Accettato' ? '\u2611 Presta il consenso   \u2610 Nega il consenso' : '\u2610 Presta il consenso   \u2611 Nega il consenso'}</strong>
-    (consenso espresso online il ${dataConsenso || '_______________'})</p>
-
-    <div class="box-firma">
-      <div>Roma, _______________________</div>
-      <div>Firma _______________________</div>
+    <div class="blocco">
+      <div class="dato"><span class="etichetta">Io sottoscritto/a</span><span class="valore">${nominativo}</span></div>
+      <div class="dato"><span class="etichetta">Codice fiscale</span><span class="valore">${codiceFiscale}</span></div>
+      <p class="testo-mandato" style="margin-top:12px">acconsente al trattamento dei dati per le finalita sopra descritte:
+      <strong>${consenso === 'Accettato' ? '\u2611 Presta il consenso &nbsp;&nbsp; \u2610 Nega il consenso' : '\u2610 Presta il consenso &nbsp;&nbsp; \u2611 Nega il consenso'}</strong>
+      <br><span style="color:#666;font-size:10.5px">(consenso espresso online il ${dataConsenso || '_______________'})</span></p>
+      <div class="firme">
+        <div class="firma-riga"><span>Roma,</span><span class="linea-firma"></span></div>
+        <div class="firma-riga"><span>Firma</span><span class="linea-firma"></span></div>
+      </div>
     </div>
   </div>
 
-  <h2>Ritiro documenti in data..........................</h2>
-  <table class="tabella-ritiro">
-    <tr><td>&nbsp;</td><td>&nbsp;</td></tr>
-    <tr><td>&nbsp;</td><td>&nbsp;</td></tr>
-  </table>
-  <div class="box-firma">
-    <div></div>
-    <div>Firma _______________________</div>
+  <div class="blocco">
+    <h2>Ritiro documenti in data ..........................</h2>
+    <table class="tabella-ritiro">
+      <tr><td>&nbsp;</td><td>&nbsp;</td></tr>
+      <tr><td>&nbsp;</td><td>&nbsp;</td></tr>
+    </table>
+    <div class="firme">
+      <div style="flex:1"></div>
+      <div class="firma-riga"><span>Firma</span><span class="linea-firma"></span></div>
+    </div>
   </div>
 
   <script>window.onload = () => window.print();<\/script>
