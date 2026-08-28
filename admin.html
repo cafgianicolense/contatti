@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 4 -->
+<!-- rev. 5 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -131,6 +131,7 @@
       <h2>Iscrizioni raccolte</h2>
       <button onclick="caricaIscrizioni()">Aggiorna elenco</button>
       <button onclick="scaricaExcel()">Scarica Excel</button>
+      <p class="nota" style="margin-top:10px">Il pulsante Stampa mandato apre in una nuova scheda il modulo di mandato gia compilato con i dati dell'iscritto, pronto per la stampa e la firma a mano.</p>
       <div id="tabellaIscrizioni"></div>
     </div>
 
@@ -270,12 +271,124 @@
       div.innerHTML = '<p>Nessuna iscrizione ancora.</p>';
       return;
     }
-    let html = '<table><tr>' + ultimeIscrizioni.intestazioni.map(h => `<th>${h}</th>`).join('') + '</tr>';
-    ultimeIscrizioni.righe.forEach(r => {
-      html += '<tr>' + r.map(v => `<td>${v}</td>`).join('') + '</tr>';
+    let html = '<table><tr>' + ultimeIscrizioni.intestazioni.map(h => `<th>${h}</th>`).join('') + '<th>Azioni</th></tr>';
+    ultimeIscrizioni.righe.forEach((r, i) => {
+      html += '<tr>' + r.map(v => `<td>${v}</td>`).join('') + `<td><button class="secondario" onclick="stampaMandato(${i})">Stampa mandato</button></td></tr>`;
     });
     html += '</table>';
     div.innerHTML = html;
+  }
+
+  // Cerca in una riga il valore della prima colonna la cui intestazione
+  // contiene una delle parole chiave indicate, per adattarsi ai nomi
+  // scelti dall'admin nella scheda Gestione campi.
+  function trovaValore(riga, parole) {
+    for (const parola of parole) {
+      const idx = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().includes(parola));
+      if (idx >= 0 && riga[idx]) return riga[idx];
+    }
+    return '';
+  }
+
+  function stampaMandato(i) {
+    const riga = ultimeIscrizioni.righe[i];
+    const nominativo = trovaValore(riga, ['nominativo', 'nome e cognome', 'nome completo', 'nome']);
+    const luogoNascita = trovaValore(riga, ['luogo di nascita', 'nato a']);
+    const dataNascita = trovaValore(riga, ['data di nascita', 'nato il']);
+    const codiceFiscale = trovaValore(riga, ['codice fiscale']);
+    const indirizzo = trovaValore(riga, ['indirizzo']);
+    const telefono = trovaValore(riga, ['telefono', 'recapito']);
+    const email = trovaValore(riga, ['email', 'mail']);
+    const richiesta = trovaValore(riga, ['oggetto della richiesta', 'richiesta', 'pratica']);
+    const osservazioni = trovaValore(riga, ['osservazioni']);
+    const consenso = trovaValore(riga, ['consenso privacy']) || 'Accettato';
+    const timestampGrezzo = trovaValore(riga, ['timestamp']);
+    let dataConsenso = timestampGrezzo;
+    if (timestampGrezzo) {
+      const d = new Date(timestampGrezzo);
+      if (!isNaN(d)) dataConsenso = d.toLocaleString('it-IT');
+    }
+
+    const righeChecklist = [
+      'Documento identita dichiarante e codice fiscale',
+      'Composizione nucleo familiare',
+      'Dichiarazione dei redditi di tutti i soggetti del nucleo',
+      'Proprieta immobiliari (visura catastale/altro)',
+      'Patrimonio mobiliare: depositi e conti correnti (giacenza media x ISEE)',
+      'Polizze vita, certificati di deposito, ecc.',
+      'Autoveicoli ed altri beni durevoli',
+      'Certificato invalidita',
+      'Spese detraibili, oneri deducibili'
+    ];
+
+    const html = `<!DOCTYPE html>
+<html lang="it"><head><meta charset="UTF-8"><title>Mandato, ${nominativo}</title>
+<style>
+  body { font-family: Georgia, 'Times New Roman', serif; font-size: 13px; color: #111; max-width: 750px; margin: 30px auto; line-height: 1.5; }
+  h1 { font-size: 16px; text-align: center; margin-bottom: 2px; }
+  h2 { font-size: 13px; margin: 22px 0 6px; border-top: 1px solid #999; padding-top: 12px; }
+  .riga { margin: 8px 0; }
+  .riga span.linea { display: inline-block; border-bottom: 1px solid #333; min-width: 220px; padding: 0 4px; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+  th, td { border: 1px solid #333; padding: 5px 8px; font-size: 12px; text-align: left; }
+  th:last-child, td:last-child { width: 60px; text-align: center; }
+  .box-firma { display: flex; justify-content: space-between; margin-top: 30px; }
+  .informativa-stampa { font-size: 10.5px; line-height: 1.5; text-align: justify; margin-top: 10px; }
+  .informativa-stampa p { margin: 0 0 6px; }
+  @media print { body { margin: 10mm; } }
+</style></head>
+<body>
+  <h1>MANDATO AD OPERARE, CONSEGNA DOCUMENTI</h1>
+  <p style="text-align:center">CAF Gianicolense</p>
+
+  <div class="riga"><strong>Per la seguente richiesta:</strong> <span class="linea">${richiesta}</span></div>
+  <div class="riga"><strong>Sig./Sig.ra:</strong> <span class="linea">${nominativo}</span></div>
+  <div class="riga"><strong>Indirizzo:</strong> <span class="linea">${indirizzo}</span></div>
+
+  <h2>Documenti consegnati</h2>
+  <table>
+    <tr><th>Documento</th><th>Visto</th></tr>
+    ${righeChecklist.map(voce => `<tr><td>${voce}</td><td></td></tr>`).join('')}
+    <tr><td>&nbsp;</td><td></td></tr>
+    <tr><td>&nbsp;</td><td></td></tr>
+  </table>
+
+  <div class="riga"><strong>Recapito telefonico:</strong> <span class="linea">${telefono}</span></div>
+  <div class="riga"><strong>Mail:</strong> <span class="linea">${email}</span></div>
+  <div class="riga"><strong>Osservazioni:</strong> <span class="linea">${osservazioni}</span></div>
+
+  <h2>Mandato</h2>
+  <p>Con il presente atto io sottoscritto/a <span class="linea">${nominativo}</span>
+  nato/a a <span class="linea">${luogoNascita}</span> il <span class="linea">${dataNascita}</span>
+  codice fiscale <span class="linea">${codiceFiscale}</span>,
+  conferisco mandato al <strong>CAF Gianicolense</strong> a rappresentarmi ed assistermi in merito alla pratica indicata in calce.</p>
+
+  <div class="box-firma">
+    <div>Data _______________________</div>
+    <div>Firma _______________________</div>
+  </div>
+
+  <h2>Informativa privacy, art. 13 Regolamento europeo 679/2016</h2>
+  <div class="informativa-stampa">
+    <p>Il titolare del trattamento e Giovannoni Luca, con domicilio eletto in Roma, Vicolo della Serpe 81, 00149 Roma, contattabile via pec a l.giovannoni@cdlrmpec.it o mail a studio@giovannoniluca.it. Il trattamento e finalizzato alla corretta esecuzione dell'incarico professionale ricevuto e all'adempimento degli obblighi fiscali, contabili e normativi previsti per il professionista. I dati sono trattati con archivi cartacei e informatici, con modalita strettamente necessarie a tali finalita, e conservati per la durata del contratto e per il successivo periodo previsto dagli obblighi di conservazione. I dati potranno essere comunicati a consulenti, commercialisti, legali, istituti bancari e assicurativi coinvolti nella pratica, e ad autorita giudiziarie o amministrative per obblighi di legge, senza alcuna diffusione ne processo decisionale automatizzato. L'interessato ha diritto di accesso, rettifica, cancellazione, limitazione, portabilita, opposizione, revoca del consenso, e puo proporre reclamo al Garante Privacy, www.garanteprivacy.it.</p>
+  </div>
+
+  <div class="riga" style="margin-top:16px">Io sottoscritto/a <span class="linea">${nominativo}</span></div>
+  <div class="riga">Codice fiscale <span class="linea">${codiceFiscale}</span></div>
+  <p>acconsente al trattamento dei dati per le finalita sopra descritte: <strong>${consenso === 'Accettato' ? '\u2611 Presta il consenso   \u2610 Nega il consenso' : '\u2610 Presta il consenso   \u2611 Nega il consenso'}</strong>
+  (consenso espresso online il ${dataConsenso || '_______________'})</p>
+
+  <div class="box-firma">
+    <div>Roma, _______________________</div>
+    <div>Firma _______________________</div>
+  </div>
+
+  <script>window.onload = () => window.print();<\/script>
+</body></html>`;
+
+    const finestra = window.open('', '_blank');
+    finestra.document.write(html);
+    finestra.document.close();
   }
 
   async function caricaSchedaEmail() {

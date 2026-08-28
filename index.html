@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Iscrizione CAF Gianicolense</title>
-<!-- rev. 3 -->
+<!-- rev. 4 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -64,8 +64,24 @@
     outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(78,106,169,0.15);
   }
   .checkbox-row { display: flex; align-items: center; margin-top: 20px; gap: 10px; }
-  .checkbox-row input { margin: 0; width: 17px; height: 17px; accent-color: var(--blue); }
+  .checkbox-row input { margin: 0; width: 17px; height: 17px; accent-color: var(--blue); flex-shrink: 0; }
   .checkbox-row label { margin-top: 0; font-weight: 500; }
+  .informativa {
+    margin-top: 30px; padding-top: 22px; border-top: 1px solid var(--line);
+  }
+  .informativa h2 {
+    font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 17px; margin: 0 0 10px;
+  }
+  .testo-informativa {
+    max-height: 220px; overflow-y: auto; font-size: 12.5px; line-height: 1.6; color: var(--muted);
+    background: #fdfcfa; border: 1px solid var(--line); padding: 14px 16px; margin-bottom: 4px;
+  }
+  .testo-informativa p { margin: 0 0 10px; }
+  .testo-informativa p:last-child { margin-bottom: 0; }
+  .testo-informativa strong { color: var(--ink); }
+  .informativa .checkbox-row { align-items: flex-start; }
+  .informativa .checkbox-row input { margin-top: 3px; }
+  .informativa .checkbox-row label { font-size: 13px; font-weight: 500; line-height: 1.5; }
   button {
     margin-top: 30px; width: 100%; padding: 13px; background: var(--blue); color: #fff;
     border: none; border-radius: 2px; font-size: 15px; font-weight: 600; letter-spacing: .01em;
@@ -86,7 +102,29 @@
   <hr class="divisore">
   <h1>Modulo di iscrizione</h1>
   <p class="sottotitolo">Compila i campi qui sotto per completare la tua iscrizione al CAF Gianicolense.</p>
-  <form id="form"></form>
+  <form id="form">
+    <div id="campiDinamici"></div>
+
+    <div class="informativa">
+      <h2>Informativa privacy</h2>
+      <div class="testo-informativa">
+        <p><strong>Informativa ai sensi dell'art. 13 del Regolamento europeo 679/2016 e consenso.</strong> Ai sensi dell'art. 13 del Regolamento europeo (UE) 2016/679 (di seguito GDPR), e in relazione ai dati personali di cui lo studio entrerà nella disponibilità con l'affidamento della Sua pratica, Le comunichiamo quanto segue.</p>
+        <p><strong>Titolare del trattamento.</strong> Titolare del trattamento è Giovannoni Luca (di seguito indicato anche come "professionista") con domicilio eletto in Roma, Vicolo della Serpe 81, 00149 Roma. Il titolare può essere contattato tramite pec all'indirizzo l.giovannoni@cdlrmpec.it o mail all'indirizzo studio@giovannoniluca.it. Lo studio del titolare non ha nominato un responsabile della protezione dei dati personali, RPD ovvero DPO.</p>
+        <p><strong>Finalità del trattamento.</strong> Il trattamento è finalizzato alla corretta e completa esecuzione dell'incarico professionale ricevuto, sia in ambito giudiziale che stragiudiziale, oltre che per adempiere agli obblighi fiscali e contabili e agli obblighi previsti dalla normativa vigente per il professionista. I dati potranno essere trattati sia con archivi cartacei che informatici, con modalità strettamente necessarie alle finalità indicate.</p>
+        <p><strong>Base giuridica.</strong> Il trattamento è lecito quando necessario all'esecuzione del mandato o di misure precontrattuali, per adempiere un obbligo legale del professionista, oppure quando basato sul consenso espresso.</p>
+        <p><strong>Conseguenze della mancata comunicazione dei dati.</strong> La mancata comunicazione dei dati necessari all'esecuzione del mandato o all'adempimento di un obbligo normativo impedisce il perfezionarsi del rapporto.</p>
+        <p><strong>Conservazione.</strong> I dati saranno conservati per la durata del contratto e, successivamente, per il tempo in cui il professionista sia soggetto a obblighi di conservazione per finalità fiscali o previste da norme di legge o regolamento.</p>
+        <p><strong>Comunicazione dei dati.</strong> I dati potranno essere comunicati a consulenti, commercialisti o legali che eroghino prestazioni funzionali agli scopi indicati, a istituti bancari e assicurativi per le stesse finalità, a soggetti che elaborano i dati in esecuzione di obblighi di legge, e ad autorità giudiziarie o amministrative per l'adempimento di obblighi di legge.</p>
+        <p><strong>Profilazione e diffusione.</strong> I dati non sono soggetti a diffusione né ad alcun processo decisionale interamente automatizzato, inclusa la profilazione.</p>
+        <p><strong>Diritti dell'interessato.</strong> Lei ha diritto di chiedere l'accesso ai Suoi dati, la rettifica dei dati inesatti o l'integrazione di quelli incompleti, la cancellazione dei dati nei casi previsti dall'art. 17 del GDPR, la limitazione del trattamento nei casi previsti dall'art. 18, la portabilità dei dati quando il trattamento è basato su contratto o consenso ed effettuato con mezzi automatizzati, di opporsi al trattamento in presenza di situazioni particolari, di revocare il consenso in qualsiasi momento senza pregiudicare la liceità del trattamento già effettuato, e di proporre reclamo al Garante per la protezione dei dati personali, www.garanteprivacy.it.</p>
+      </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="consensoPrivacy" required>
+        <label for="consensoPrivacy">Dichiaro di aver letto l'informativa sul trattamento dei dati personali e presto il mio consenso ai sensi dell'art. 13 del Regolamento europeo 679/2016.</label>
+      </div>
+    </div>
+  </form>
+
   <div id="esito"></div>
 </div>
 
@@ -95,6 +133,7 @@
   const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbwfARR9qd6ljdrmnar5JU-IejRR3S_6ZfIZw-lWsz8jDk9PBkMEd9uexc0F5Fd2t02VXw/exec';
 
   const formEl = document.getElementById('form');
+  const camposEl = document.getElementById('campiDinamici');
   const esitoEl = document.getElementById('esito');
   let campiCorrenti = [];
 
@@ -146,8 +185,8 @@
       const res = await fetch(BACKEND_URL + '?action=getForm');
       const data = await res.json();
       campiCorrenti = data.campi || [];
-      formEl.innerHTML = '';
-      campiCorrenti.forEach(c => formEl.appendChild(creaCampo(c)));
+      camposEl.innerHTML = '';
+      campiCorrenti.forEach(c => camposEl.appendChild(creaCampo(c)));
       const btn = document.createElement('button');
       btn.type = 'submit';
       btn.textContent = 'Invia iscrizione';
@@ -168,6 +207,7 @@
       const el = document.getElementById('c_' + c.nome);
       dati[c.etichetta] = c.tipo === 'checkbox' ? (el.checked ? 'Si' : 'No') : el.value;
     });
+    dati['Consenso privacy'] = document.getElementById('consensoPrivacy').checked ? 'Accettato' : 'Non accettato';
 
     try {
       const res = await fetch(BACKEND_URL, {
