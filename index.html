@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Iscrizione CAF Gianicolense</title>
-<!-- rev. 17 -->
+<!-- rev. 18 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -129,7 +129,7 @@
 </style>
 </head>
 <body>
-<div class="versione">rev. 17</div>
+<div class="versione">rev. 18</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -277,13 +277,11 @@
     } else if (campo.tipo === 'testo' && chiave.includes('provincia di residenza')) {
       input.maxLength = 2;
       input.placeholder = 'Si compila da sola';
-      input.addEventListener('input', () => {
-        input.value = input.value.toUpperCase();
-        input.dataset.manuale = 'true';
-      });
+      input.disabled = true;
+      input.tabIndex = -1;
       const nota = document.createElement('div');
       nota.className = 'nota-cf';
-      nota.textContent = 'Si compila da sola scegliendo il comune di residenza dal menu di suggerimenti. Puoi comunque correggerla a mano.';
+      nota.textContent = 'Si compila da sola scegliendo il comune di residenza dal menu di suggerimenti, non modificabile a mano.';
       wrapper.appendChild(input);
       wrapper.appendChild(nota);
       return wrapper;
@@ -513,15 +511,14 @@
   }
 
   // Estrae la sigla della provincia dal comune scelto, es. "Roma (RM)" -> "RM",
-  // e la scrive nel campo Provincia di residenza, se presente, finche
-  // quest'ultimo non viene corretto a mano dalla persona.
+  // e la scrive nel campo Provincia di residenza, se presente. Il campo e
+  // disabilitato, quindi resta sempre e solo compilato in automatico.
   function collegaProvinciaResidenza() {
     const inputComune = trovaCampoGenerico(['comune di residenza']);
     const inputProvincia = trovaCampoGenerico(['provincia di residenza']);
     if (!inputComune || !inputProvincia) return;
 
     const aggiorna = () => {
-      if (inputProvincia.dataset.manuale === 'true') return;
       const corrispondenza = (inputComune.value || '').match(/\(([A-Za-z]{2})\)\s*$/);
       inputProvincia.value = corrispondenza ? corrispondenza[1].toUpperCase() : '';
     };
