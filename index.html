@@ -4,10 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Iscrizione CAF Gianicolense</title>
-<!-- rev. 7 -->
+<!-- rev. 8 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="comuni.js"></script>
 <style>
   :root {
     --ink: #1c1f26;
@@ -96,10 +97,14 @@
     position: fixed; bottom: 8px; right: 12px; font-size: 11px;
     color: var(--muted); opacity: 0.6; font-family: 'Inter', sans-serif;
   }
+  .avviso-cf {
+    font-size: 12.5px; margin-top: 6px; color: var(--red); display: none;
+  }
+  .avviso-cf.visibile { display: block; }
 </style>
 </head>
 <body>
-<div class="versione">rev. 7</div>
+<div class="versione">rev. 8</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -109,6 +114,7 @@
   <p class="sottotitolo">Compila i campi qui sotto per completare la tua iscrizione al CAF Gianicolense.</p>
   <form id="form">
     <div id="campiDinamici"></div>
+    <datalist id="listaComuni"></datalist>
 
     <div class="informativa">
       <h2>Informativa privacy</h2>
@@ -166,6 +172,9 @@
     } else if (campo.tipo === 'textarea') {
       input = document.createElement('textarea');
       input.rows = 3;
+    } else if (campo.tipo === 'data') {
+      input = document.createElement('input');
+      input.type = 'date';
     } else {
       input = document.createElement('input');
       input.type = campo.tipo === 'numero' ? 'number' : 'text';
@@ -174,8 +183,8 @@
     input.name = campo.nome;
     if (campo.obbligatorio) input.required = true;
 
-    // Riconosce automaticamente i campi Codice fiscale ed Email, in base
-    // al nome interno o all'etichetta, e applica il formato corretto.
+    // Riconosce automaticamente alcuni campi in base al nome interno o
+    // all'etichetta, e applica il formato o l'aiuto corretto.
     const chiave = ((campo.nome || '') + ' ' + (campo.etichetta || '')).toLowerCase();
     if (campo.tipo === 'testo' && chiave.includes('codice fiscale')) {
       input.pattern = '[A-Za-z]{6}[0-9]{2}[A-Za-z][0-9]{2}[A-Za-z][0-9]{3}[A-Za-z]';
@@ -185,14 +194,160 @@
       input.addEventListener('input', () => {
         input.value = input.value.toUpperCase();
       });
+      const avviso = document.createElement('div');
+      avviso.className = 'avviso-cf';
+      avviso.id = 'avvisoCF';
+      wrapper.appendChild(input);
+      wrapper.appendChild(avviso);
+      return wrapper;
     } else if (campo.tipo === 'testo' && (chiave.includes('email') || chiave.includes('mail'))) {
       input.type = 'email';
       input.title = 'Inserisci un indirizzo email valido, es. nome@esempio.it';
       input.placeholder = 'nome@esempio.it';
+    } else if (campo.tipo === 'testo' && chiave.includes('comune di nascita')) {
+      input.setAttribute('list', 'listaComuni');
+      input.placeholder = 'Inizia a scrivere il nome del comune...';
+      input.autocomplete = 'off';
     }
 
     wrapper.appendChild(input);
     return wrapper;
+  }
+
+  // --- Calcolo del codice fiscale, per confronto con quanto digitato ---
+  // Algoritmo standard, basato su cognome, nome, sesso, data e comune di
+  // nascita. Se il comune indicato non e tra quelli italiani noti (per
+  // esempio nascite all'estero), il controllo viene saltato in silenzio,
+  // senza generare falsi avvisi.
+
+  function popolaListaComuni() {
+    const lista = document.getElementById('listaComuni');
+    if (!lista || typeof COMUNI_CATASTALI === 'undefined') return;
+    lista.innerHTML = '';
+    Object.keys(COMUNI_CATASTALI).forEach(nomeComune => {
+      const opt = document.createElement('option');
+      opt.value = nomeComune;
+      lista.appendChild(opt);
+    });
+  }
+
+  function normalizzaTesto(s) {
+    return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z]/g, '');
+  }
+
+  function estraiConsonantiVocali(s) {
+    const norm = normalizzaTesto(s);
+    const vocali = 'AEIOU';
+    let consonanti = '', vocaliTrovate = '';
+    for (const ch of norm) {
+      if (vocali.includes(ch)) vocaliTrovate += ch; else consonanti += ch;
+    }
+    return { consonanti, vocali: vocaliTrovate };
+  }
+
+  function codiceCognome(cognome) {
+    const { consonanti, vocali } = estraiConsonantiVocali(cognome);
+    return (consonanti + vocali + 'XXX').slice(0, 3);
+  }
+
+  function codiceNome(nome) {
+    const { consonanti, vocali } = estraiConsonantiVocali(nome);
+    if (consonanti.length >= 4) return consonanti[0] + consonanti[2] + consonanti[3];
+    return (consonanti + vocali + 'XXX').slice(0, 3);
+  }
+
+  const MESI_CF = { 1: 'A', 2: 'B', 3: 'C', 4: 'D', 5: 'E', 6: 'H', 7: 'L', 8: 'M', 9: 'P', 10: 'R', 11: 'S', 12: 'T' };
+
+  const VALORI_DISPARI = {
+    '0': 1, '1': 0, '2': 5, '3': 7, '4': 9, '5': 13, '6': 15, '7': 17, '8': 19, '9': 21,
+    A: 1, B: 0, C: 5, D: 7, E: 9, F: 13, G: 15, H: 17, I: 19, J: 21, K: 2, L: 4, M: 18,
+    N: 20, O: 11, P: 3, Q: 6, R: 8, S: 12, T: 14, U: 16, V: 10, W: 22, X: 25, Y: 24, Z: 23
+  };
+  const VALORI_PARI = {
+    '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9,
+    A: 0, B: 1, C: 2, D: 3, E: 4, F: 5, G: 6, H: 7, I: 8, J: 9, K: 10, L: 11, M: 12,
+    N: 13, O: 14, P: 15, Q: 16, R: 17, S: 18, T: 19, U: 20, V: 21, W: 22, X: 23, Y: 24, Z: 25
+  };
+  const LETTERE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+  function carattereControllo(quindici) {
+    let somma = 0;
+    for (let i = 0; i < 15; i++) {
+      const ch = quindici[i];
+      somma += (i % 2 === 0) ? VALORI_DISPARI[ch] : VALORI_PARI[ch];
+    }
+    return LETTERE[somma % 26];
+  }
+
+  // Calcola il codice fiscale atteso. Ritorna null se manca il comune
+  // nell'elenco noto (es. nato all'estero) o se i dati sono incompleti.
+  function calcolaCodiceFiscale({ cognome, nome, sesso, dataNascita, comuneNascita }) {
+    if (!cognome || !nome || !sesso || !dataNascita || !comuneNascita) return null;
+    const catastale = COMUNI_CATASTALI[comuneNascita.trim()];
+    if (!catastale) return null;
+    const d = new Date(dataNascita);
+    if (isNaN(d)) return null;
+    const anno = String(d.getUTCFullYear()).slice(-2);
+    const mese = MESI_CF[d.getUTCMonth() + 1];
+    let giorno = d.getUTCDate();
+    if (sesso.toUpperCase() === 'F') giorno += 40;
+    const giornoStr = String(giorno).padStart(2, '0');
+    const quindici = codiceCognome(cognome) + codiceNome(nome) + anno + mese + giornoStr + catastale;
+    return quindici + carattereControllo(quindici);
+  }
+
+  // Cerca fra i campi renderizzati quello la cui etichetta o nome interno
+  // corrisponde a una delle parole chiave, per adattarsi a come l'admin
+  // ha configurato il form. Prova prima una corrispondenza esatta, per non
+  // confondere ad esempio "Nome" con "Cognome".
+  function trovaCampoInput(parole) {
+    for (const c of campiCorrenti) {
+      const nome = (c.nome || '').toLowerCase();
+      const etichetta = (c.etichetta || '').toLowerCase();
+      if (parole.includes(nome) || parole.includes(etichetta)) return document.getElementById('c_' + c.nome);
+    }
+    for (const c of campiCorrenti) {
+      const chiave = ((c.nome || '') + ' ' + (c.etichetta || '')).toLowerCase();
+      if (parole.some(p => chiave.includes(p))) return document.getElementById('c_' + c.nome);
+    }
+    return null;
+  }
+
+  function collegaControlloCodiceFiscale() {
+    const inputCognome = trovaCampoInput(['cognome']);
+    const inputNome = trovaCampoInput(['nome']);
+    const inputSesso = trovaCampoInput(['sesso']);
+    const inputData = trovaCampoInput(['data di nascita']);
+    const inputComune = trovaCampoInput(['comune di nascita', 'luogo di nascita']);
+    const inputCF = trovaCampoInput(['codice fiscale']);
+    const avviso = document.getElementById('avvisoCF');
+    if (!inputCognome || !inputNome || !inputSesso || !inputData || !inputComune || !inputCF || !avviso) return;
+
+    const verifica = () => {
+      const atteso = calcolaCodiceFiscale({
+        cognome: inputCognome.value,
+        nome: inputNome.value,
+        sesso: inputSesso.value,
+        dataNascita: inputData.value,
+        comuneNascita: inputComune.value
+      });
+      const digitato = (inputCF.value || '').trim().toUpperCase();
+      if (!atteso || !digitato) {
+        avviso.classList.remove('visibile');
+        return;
+      }
+      if (digitato !== atteso) {
+        avviso.textContent = `Il codice fiscale digitato non corrisponde ai dati inseriti. In base a cognome, nome, sesso, data e comune di nascita dovrebbe essere ${atteso}.`;
+        avviso.classList.add('visibile');
+      } else {
+        avviso.classList.remove('visibile');
+      }
+    };
+
+    [inputCognome, inputNome, inputSesso, inputData, inputComune, inputCF].forEach(el => {
+      el.addEventListener('input', verifica);
+      el.addEventListener('change', verifica);
+    });
   }
 
   async function caricaInformativa() {
@@ -223,6 +378,7 @@
       btn.type = 'submit';
       btn.textContent = 'Invia iscrizione';
       formEl.appendChild(btn);
+      collegaControlloCodiceFiscale();
     } catch (err) {
       esitoEl.innerHTML = '<span class="errore">Errore nel caricamento del modulo. Riprova più tardi.</span>';
     }
@@ -260,6 +416,7 @@
     }
   });
 
+  popolaListaComuni();
   caricaForm();
   caricaInformativa();
 </script>

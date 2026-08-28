@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 8 -->
+<!-- rev. 9 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -109,7 +109,7 @@
 </style>
 </head>
 <body>
-<div class="versione">rev. 8</div>
+<div class="versione">rev. 9</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -286,6 +286,7 @@
           <option value="textarea" ${c.tipo==='textarea'?'selected':''}>Area di testo</option>
           <option value="select" ${c.tipo==='select'?'selected':''}>Menu a tendina</option>
           <option value="checkbox" ${c.tipo==='checkbox'?'selected':''}>Si / No</option>
+          <option value="data" ${c.tipo==='data'?'selected':''}>Data</option>
         </select>
         ${c.tipo === 'select' ? `<input type="text" placeholder="Opzioni separate da virgola" value="${c.opzioni||''}" onchange="campi[${i}].opzioni=this.value">` : ''}
         <label><input type="checkbox" ${c.obbligatorio?'checked':''} onchange="campi[${i}].obbligatorio=this.checked"> Obbligatorio</label>
@@ -362,7 +363,20 @@
   // Cerca in una riga il valore della prima colonna la cui intestazione
   // contiene una delle parole chiave indicate, per adattarsi ai nomi
   // scelti dall'admin nella scheda Gestione campi.
+  function formattaData(valore) {
+    if (!valore) return '';
+    const d = new Date(valore);
+    if (isNaN(d) || !/^\d{4}-\d{2}-\d{2}/.test(String(valore))) return valore;
+    return d.toLocaleDateString('it-IT', { timeZone: 'UTC' });
+  }
+
   function trovaValore(riga, parole) {
+    // prima cerca una corrispondenza esatta con l'intestazione della colonna
+    for (const parola of parole) {
+      const idxEsatto = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === parola);
+      if (idxEsatto >= 0 && riga[idxEsatto]) return riga[idxEsatto];
+    }
+    // altrimenti una corrispondenza parziale, meno precisa ma piu tollerante
     for (const parola of parole) {
       const idx = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().includes(parola));
       if (idx >= 0 && riga[idx]) return riga[idx];
@@ -373,9 +387,14 @@
   async function stampaMandato(i) {
     if (!testoInformativaCorrente) await caricaPrivacyInterna();
     const riga = ultimeIscrizioni.righe[i];
-    const nominativo = trovaValore(riga, ['nominativo', 'nome e cognome', 'nome completo', 'nome']);
-    const luogoNascita = trovaValore(riga, ['luogo di nascita', 'nato a']);
-    const dataNascita = trovaValore(riga, ['data di nascita', 'nato il']);
+    const cognome = trovaValore(riga, ['cognome']);
+    const nomeProprio = trovaValore(riga, ['nome']);
+    const nominativo = (cognome || nomeProprio)
+      ? (cognome + ' ' + nomeProprio).trim()
+      : trovaValore(riga, ['nominativo', 'nome e cognome', 'nome completo']);
+    const luogoNascita = trovaValore(riga, ['comune di nascita', 'luogo di nascita', 'nato a']);
+    const dataNascitaGrezza = trovaValore(riga, ['data di nascita', 'nato il']);
+    const dataNascita = formattaData(dataNascitaGrezza);
     const codiceFiscale = trovaValore(riga, ['codice fiscale']);
     const indirizzo = trovaValore(riga, ['indirizzo']);
     const telefono = trovaValore(riga, ['telefono', 'recapito']);
