@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Iscrizione CAF Gianicolense</title>
-<!-- rev. 8 -->
+<!-- rev. 9 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -101,10 +101,13 @@
     font-size: 12.5px; margin-top: 6px; color: var(--red); display: none;
   }
   .avviso-cf.visibile { display: block; }
+  .nota-cf {
+    font-size: 12px; margin-top: 6px; color: var(--muted);
+  }
 </style>
 </head>
 <body>
-<div class="versione">rev. 8</div>
+<div class="versione">rev. 9</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -190,14 +193,18 @@
       input.pattern = '[A-Za-z]{6}[0-9]{2}[A-Za-z][0-9]{2}[A-Za-z][0-9]{3}[A-Za-z]';
       input.maxLength = 16;
       input.title = 'Il codice fiscale deve avere 16 caratteri, nel formato standard, es. RSSMRA80A01H501Z';
-      input.placeholder = 'Es. RSSMRA80A01H501Z';
+      input.placeholder = 'Compilato automaticamente dai dati sopra';
       input.addEventListener('input', () => {
         input.value = input.value.toUpperCase();
       });
+      const nota = document.createElement('div');
+      nota.className = 'nota-cf';
+      nota.textContent = 'Si compila da solo in base a cognome, nome, sesso, data e comune di nascita. Puoi comunque correggerlo a mano.';
       const avviso = document.createElement('div');
       avviso.className = 'avviso-cf';
       avviso.id = 'avvisoCF';
       wrapper.appendChild(input);
+      wrapper.appendChild(nota);
       wrapper.appendChild(avviso);
       return wrapper;
     } else if (campo.tipo === 'testo' && (chiave.includes('email') || chiave.includes('mail'))) {
@@ -323,7 +330,40 @@
     const avviso = document.getElementById('avvisoCF');
     if (!inputCognome || !inputNome || !inputSesso || !inputData || !inputComune || !inputCF || !avviso) return;
 
-    const verifica = () => {
+    const mostraAvviso = (atteso) => {
+      avviso.textContent = `Il codice fiscale digitato non corrisponde ai dati inseriti. In base a cognome, nome, sesso, data e comune di nascita dovrebbe essere ${atteso}.`;
+      avviso.classList.add('visibile');
+    };
+    const nascondiAvviso = () => avviso.classList.remove('visibile');
+
+    // Cambia uno qualsiasi dei dati anagrafici: se il codice fiscale non e
+    // ancora stato toccato a mano dalla persona, lo ricompila da solo.
+    // Se invece e stato modificato a mano, non lo tocca piu, e si limita
+    // a segnalare un'eventuale incongruenza.
+    const aggiornaDaAnagrafica = () => {
+      const atteso = calcolaCodiceFiscale({
+        cognome: inputCognome.value,
+        nome: inputNome.value,
+        sesso: inputSesso.value,
+        dataNascita: inputData.value,
+        comuneNascita: inputComune.value
+      });
+      if (inputCF.dataset.manuale !== 'true') {
+        if (atteso) {
+          inputCF.value = atteso;
+          nascondiAvviso();
+        }
+        return;
+      }
+      const digitato = (inputCF.value || '').trim().toUpperCase();
+      if (!atteso || !digitato) { nascondiAvviso(); return; }
+      if (digitato !== atteso) mostraAvviso(atteso); else nascondiAvviso();
+    };
+
+    // La persona scrive o corregge il codice fiscale a mano: da questo
+    // momento il campo diventa libero e non viene piu sovrascritto.
+    const alModificaManuale = () => {
+      inputCF.dataset.manuale = 'true';
       const atteso = calcolaCodiceFiscale({
         cognome: inputCognome.value,
         nome: inputNome.value,
@@ -332,22 +372,15 @@
         comuneNascita: inputComune.value
       });
       const digitato = (inputCF.value || '').trim().toUpperCase();
-      if (!atteso || !digitato) {
-        avviso.classList.remove('visibile');
-        return;
-      }
-      if (digitato !== atteso) {
-        avviso.textContent = `Il codice fiscale digitato non corrisponde ai dati inseriti. In base a cognome, nome, sesso, data e comune di nascita dovrebbe essere ${atteso}.`;
-        avviso.classList.add('visibile');
-      } else {
-        avviso.classList.remove('visibile');
-      }
+      if (!atteso || !digitato) { nascondiAvviso(); return; }
+      if (digitato !== atteso) mostraAvviso(atteso); else nascondiAvviso();
     };
 
-    [inputCognome, inputNome, inputSesso, inputData, inputComune, inputCF].forEach(el => {
-      el.addEventListener('input', verifica);
-      el.addEventListener('change', verifica);
+    [inputCognome, inputNome, inputSesso, inputData, inputComune].forEach(el => {
+      el.addEventListener('input', aggiornaDaAnagrafica);
+      el.addEventListener('change', aggiornaDaAnagrafica);
     });
+    inputCF.addEventListener('input', alModificaManuale);
   }
 
   async function caricaInformativa() {
