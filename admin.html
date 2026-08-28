@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 12 -->
+<!-- rev. 13 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -67,12 +67,14 @@
   button.pericolo { background: var(--red); }
   button.pericolo:hover { background: var(--red-dark); }
   table { width: 100%; border-collapse: collapse; margin-top: 14px; }
-  th, td { border-bottom: 1px solid var(--line); padding: 9px 10px; font-size: 13px; text-align: left; }
+  th, td { border-bottom: 1px solid var(--line); padding: 9px 10px; font-size: 13px; text-align: left; white-space: nowrap; }
   th {
     background: var(--paper); font-weight: 600; text-transform: uppercase;
     font-size: 11px; letter-spacing: .04em; color: var(--muted);
   }
   tr:hover td { background: #fbfaf7; }
+  .scroll-tabella { max-width: 100%; overflow-x: auto; }
+  .scroll-tabella table { width: auto; min-width: 100%; }
   .riga-campo {
     display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap;
     padding: 10px; border: 1px solid var(--line); background: #fdfcfa;
@@ -109,7 +111,7 @@
 </style>
 </head>
 <body>
-<div class="versione">rev. 12</div>
+<div class="versione">rev. 13</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -358,7 +360,7 @@
       html += '<tr>' + r.map(v => `<td>${v}</td>`).join('') + `<td><button class="secondario" onclick="stampaMandato(${i})">Stampa mandato</button></td></tr>`;
     });
     html += '</table>';
-    div.innerHTML = html;
+    div.innerHTML = '<div class="scroll-tabella">' + html + '</div>';
   }
 
   // Cerca in una riga il valore della prima colonna la cui intestazione
