@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 18 -->
+<!-- rev. 19 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -111,7 +111,7 @@
 </style>
 </head>
 <body>
-<div class="versione">rev. 18</div>
+<div class="versione">rev. 19</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -129,7 +129,7 @@
     <div class="tabs">
       <button id="tabCampiBtn" class="attivo" onclick="mostraTab('campi')">Gestione campi</button>
       <button id="tabIscrizioniBtn" onclick="mostraTab('iscrizioni')">Iscrizioni</button>
-      <button id="tabEmailBtn" onclick="mostraTab('email')">Invia email</button>
+      <button id="tabEmailBtn" onclick="mostraTab('email')">Invio mail colf/badanti</button>
       <button id="tabPrivacyBtn" onclick="mostraTab('privacy')">Privacy</button>
     </div>
 
@@ -156,9 +156,9 @@
     </div>
 
     <div id="tabEmail" class="nascosto">
-      <h2>Invia email personalizzate</h2>
+      <h2>Invio mail colf/badanti</h2>
       <p class="nota">
-        Nel testo puoi usare segnaposto come <code>{{Nome}}</code>, con il nome esatto della colonna tra doppie graffe, verranno sostituiti con il dato di ogni iscritto.
+        Compaiono qui solo gli iscritti con il campo Colf e badanti impostato su Si. Nel testo puoi usare segnaposto come <code>{{Nome}}</code>, con il nome esatto della colonna tra doppie graffe, verranno sostituiti con il dato di ogni iscritto.
       </p>
       <label>Colonna con l'indirizzo email<br>
         <select id="colonnaEmail" onchange="disegnaDestinatari()"></select>
@@ -623,9 +623,23 @@
       div.innerHTML = '<p>Nessun iscritto disponibile.</p>';
       return;
     }
+    const idxColf = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().includes('colf'));
+    if (idxColf === -1) {
+      div.innerHTML = '<p class="nota">Manca il campo "Colf e badanti" tra i campi del form. Aggiungilo dalla scheda Gestione campi per poter usare questo invio.</p>';
+      return;
+    }
     const idxEmail = ultimeIscrizioni.intestazioni.indexOf(document.getElementById('colonnaEmail').value);
+    const destinatari = ultimeIscrizioni.righe
+      .map((r, i) => ({ r, i }))
+      .filter(({ r }) => (r[idxColf] || '').toString().trim().toLowerCase() === 'si');
+
+    if (destinatari.length === 0) {
+      div.innerHTML = '<p>Nessun iscritto ha Colf e badanti impostato su Si.</p>';
+      return;
+    }
+
     let html = '<p><label><input type="checkbox" checked onchange="selezionaTutti(this)"> Seleziona tutti</label></p>';
-    ultimeIscrizioni.righe.forEach((r, i) => {
+    destinatari.forEach(({ r, i }) => {
       html += `<label style="display:block"><input type="checkbox" class="dest" checked data-riga="${i}"> ${r[idxEmail] || '(indirizzo mancante)'}</label>`;
     });
     div.innerHTML = html;
