@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 7 -->
+<!-- rev. 8 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -77,6 +77,13 @@
     display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap;
     padding: 10px; border: 1px solid var(--line); background: #fdfcfa;
   }
+  .riga-campo.trascinando { opacity: 0.4; }
+  .riga-campo.sopra-target { border-top: 2px dashed var(--blue); }
+  .maniglia {
+    cursor: grab; color: var(--muted); font-size: 16px; padding: 0 4px;
+    user-select: none; flex-shrink: 0; line-height: 1;
+  }
+  .maniglia:active { cursor: grabbing; }
   .riga-campo input[type=text] { flex: 1; min-width: 100px; }
   .riga-campo label { font-weight: 500; display: flex; align-items: center; gap: 4px; }
   .tabs { display: flex; gap: 4px; margin-bottom: 22px; border-bottom: 1px solid var(--line); }
@@ -102,7 +109,7 @@
 </style>
 </head>
 <body>
-<div class="versione">rev. 7</div>
+<div class="versione">rev. 8</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -126,6 +133,7 @@
 
     <div id="tabCampi">
       <h2>Campi del form</h2>
+      <p class="nota">Trascina la maniglia &#8942;&#8942; a sinistra di ogni riga per cambiare l'ordine con cui i campi compaiono nel modulo pubblico.</p>
       <div id="listaCampi"></div>
       <button class="secondario" onclick="aggiungiCampo()">+ Aggiungi campo</button>
       <br><br>
@@ -266,7 +274,10 @@
     campi.forEach((c, i) => {
       const riga = document.createElement('div');
       riga.className = 'riga-campo';
+      riga.draggable = true;
+      riga.dataset.indice = i;
       riga.innerHTML = `
+        <span class="maniglia" title="Trascina per riordinare">&#8942;&#8942;</span>
         <input type="text" placeholder="Nome interno" value="${c.nome || ''}" onchange="campi[${i}].nome=this.value">
         <input type="text" placeholder="Etichetta visibile" value="${c.etichetta || ''}" onchange="campi[${i}].etichetta=this.value">
         <select onchange="campi[${i}].tipo=this.value; disegnaCampi()">
@@ -281,6 +292,30 @@
         <label><input type="checkbox" ${c.attivo!==false?'checked':''} onchange="campi[${i}].attivo=this.checked"> Attivo</label>
         <button class="pericolo" onclick="rimuoviCampo(${i})">Rimuovi</button>
       `;
+      riga.addEventListener('dragstart', () => {
+        riga.classList.add('trascinando');
+        riga.dataset.trascinato = '1';
+      });
+      riga.addEventListener('dragend', () => {
+        riga.classList.remove('trascinando');
+        document.querySelectorAll('.riga-campo').forEach(r => r.classList.remove('sopra-target'));
+      });
+      riga.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        riga.classList.add('sopra-target');
+      });
+      riga.addEventListener('dragleave', () => {
+        riga.classList.remove('sopra-target');
+      });
+      riga.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const origine = Number(document.querySelector('.riga-campo.trascinando').dataset.indice);
+        const destinazione = Number(riga.dataset.indice);
+        if (origine === destinazione) return;
+        const [spostato] = campi.splice(origine, 1);
+        campi.splice(destinazione, 0, spostato);
+        disegnaCampi();
+      });
       lista.appendChild(riga);
     });
   }
