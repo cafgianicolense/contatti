@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin iscrizioni, CAF Gianicolense</title>
+<!-- rev. 1 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; background: #f4f4f4; margin: 0; padding: 20px; }
+  .box { max-width: 800px; margin: 0 auto; background: #fff; padding: 24px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+  h1 { font-size: 20px; margin-top: 0; }
+  h2 { font-size: 16px; }
+  input[type=text], input[type=password], select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+  button { padding: 8px 14px; background: #2a6f2a; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+  button.secondario { background: #666; }
+  button.pericolo { background: #b02a2a; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  th, td { border: 1px solid #ddd; padding: 6px 8px; font-size: 13px; text-align: left; }
+  th { background: #eee; }
+  .riga-campo { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+  .riga-campo input[type=text] { flex: 1; min-width: 100px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tabs button { background: #ccc; color: #333; }
+  .tabs button.attivo { background: #2a6f2a; color: #fff; }
+  .nascosto { display: none; }
+  #erroreLogin { color: #b02a2a; margin-top: 8px; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="box">
+  <img src="logo.png" alt="CAF Gianicolense" style="max-width:220px;display:block;margin:0 auto 16px">
+  <h1 style="text-align:center">Pannello di amministrazione</h1>
+
+  <div id="loginBox">
+    <label>Password<br><input type="password" id="password"></label>
+    <button onclick="login()">Entra</button>
+    <div id="erroreLogin"></div>
+  </div>
+
+  <div id="pannello" class="nascosto">
+    <div class="tabs">
+      <button id="tabCampiBtn" class="attivo" onclick="mostraTab('campi')">Gestione campi</button>
+      <button id="tabIscrizioniBtn" onclick="mostraTab('iscrizioni')">Iscrizioni</button>
+      <button id="tabEmailBtn" onclick="mostraTab('email')">Invia email</button>
+    </div>
+
+    <div id="tabCampi">
+      <h2>Campi del form</h2>
+      <div id="listaCampi"></div>
+      <button class="secondario" onclick="aggiungiCampo()">+ Aggiungi campo</button>
+      <br><br>
+      <button onclick="salvaCampi()">Salva modifiche</button>
+      <span id="esitoCampi"></span>
+    </div>
+
+    <div id="tabIscrizioni" class="nascosto">
+      <h2>Iscrizioni raccolte</h2>
+      <button onclick="caricaIscrizioni()">Aggiorna elenco</button>
+      <button onclick="scaricaExcel()">Scarica Excel</button>
+      <div id="tabellaIscrizioni"></div>
+    </div>
+
+    <div id="tabEmail" class="nascosto">
+      <h2>Invia email personalizzate</h2>
+      <p style="font-size:13px;color:#555">
+        Nel testo puoi usare segnaposto come <code>{{Nome}}</code>, con il nome esatto della colonna tra doppie graffe, verranno sostituiti con il dato di ogni iscritto.
+      </p>
+      <label>Colonna con l'indirizzo email<br>
+        <select id="colonnaEmail" onchange="disegnaDestinatari()"></select>
+      </label>
+      <br><br>
+      <label>Oggetto<br>
+        <input type="text" id="oggettoEmail" style="width:100%;box-sizing:border-box">
+      </label>
+      <br><br>
+      <label>Testo del messaggio<br>
+        <textarea id="corpoEmail" rows="8" style="width:100%;box-sizing:border-box;padding:8px;font-size:14px;border:1px solid #ccc;border-radius:4px"></textarea>
+      </label>
+      <br><br>
+      <div id="elencoDestinatari"></div>
+      <br>
+      <button onclick="inviaEmailATutti()">Invia agli iscritti selezionati</button>
+      <div id="esitoInvio" style="margin-top:10px;font-size:13px"></div>
+      <hr style="margin:20px 0">
+      <h2>Registro invii, copia di sicurezza</h2>
+      <p style="font-size:13px;color:#555">Questo elenco viene tenuto sempre, indipendentemente dal fatto che l'email compaia anche nella posta inviata di Aruba.</p>
+      <button class="secondario" onclick="caricaLogEmail()">Mostra registro</button>
+      <div id="tabellaLogEmail"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Sostituisci con l'URL del tuo Web App Apps Script, quello che finisce con /exec
+  const BACKEND_URL = 'INCOLLA_QUI_URL_APPS_SCRIPT';
+
+  let password = '';
+  let campi = [];
+  let ultimeIscrizioni = { intestazioni: [], righe: [] };
+
+  async function login() {
+    password = document.getElementById('password').value;
+    document.getElementById('erroreLogin').textContent = '';
+    try {
+      const res = await fetch(BACKEND_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'login', password })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        document.getElementById('loginBox').classList.add('nascosto');
+        document.getElementById('pannello').classList.remove('nascosto');
+        caricaCampi();
+      } else {
+        document.getElementById('erroreLogin').textContent = 'Password errata.';
+      }
+    } catch (err) {
+      document.getElementById('erroreLogin').textContent = 'Errore di connessione.';
+    }
+  }
+
+  function mostraTab(nome) {
+    document.getElementById('tabCampi').classList.toggle('nascosto', nome !== 'campi');
+    document.getElementById('tabIscrizioni').classList.toggle('nascosto', nome !== 'iscrizioni');
+    document.getElementById('tabEmail').classList.toggle('nascosto', nome !== 'email');
+    document.getElementById('tabCampiBtn').classList.toggle('attivo', nome === 'campi');
+    document.getElementById('tabIscrizioniBtn').classList.toggle('attivo', nome === 'iscrizioni');
+    document.getElementById('tabEmailBtn').classList.toggle('attivo', nome === 'email');
+    if (nome === 'iscrizioni') caricaIscrizioni();
+    if (nome === 'email') caricaSchedaEmail();
+  }
+
+  async function caricaCampi() {
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'getFields', password })
+    });
+    const data = await res.json();
+    campi = data.campi || [];
+    disegnaCampi();
+  }
+
+  function disegnaCampi() {
+    const lista = document.getElementById('listaCampi');
+    lista.innerHTML = '';
+    campi.forEach((c, i) => {
+      const riga = document.createElement('div');
+      riga.className = 'riga-campo';
+      riga.innerHTML = `
+        <input type="text" placeholder="Nome interno" value="${c.nome || ''}" onchange="campi[${i}].nome=this.value">
+        <input type="text" placeholder="Etichetta visibile" value="${c.etichetta || ''}" onchange="campi[${i}].etichetta=this.value">
+        <select onchange="campi[${i}].tipo=this.value; disegnaCampi()">
+          <option value="testo" ${c.tipo==='testo'?'selected':''}>Testo</option>
+          <option value="numero" ${c.tipo==='numero'?'selected':''}>Numero</option>
+          <option value="textarea" ${c.tipo==='textarea'?'selected':''}>Area di testo</option>
+          <option value="select" ${c.tipo==='select'?'selected':''}>Menu a tendina</option>
+          <option value="checkbox" ${c.tipo==='checkbox'?'selected':''}>Si / No</option>
+        </select>
+        ${c.tipo === 'select' ? `<input type="text" placeholder="Opzioni separate da virgola" value="${c.opzioni||''}" onchange="campi[${i}].opzioni=this.value">` : ''}
+        <label><input type="checkbox" ${c.obbligatorio?'checked':''} onchange="campi[${i}].obbligatorio=this.checked"> Obbligatorio</label>
+        <label><input type="checkbox" ${c.attivo!==false?'checked':''} onchange="campi[${i}].attivo=this.checked"> Attivo</label>
+        <button class="pericolo" onclick="rimuoviCampo(${i})">Rimuovi</button>
+      `;
+      lista.appendChild(riga);
+    });
+  }
+
+  function aggiungiCampo() {
+    campi.push({ nome: '', etichetta: '', tipo: 'testo', opzioni: '', obbligatorio: false, ordine: campi.length, attivo: true });
+    disegnaCampi();
+  }
+
+  function rimuoviCampo(i) {
+    campi.splice(i, 1);
+    disegnaCampi();
+  }
+
+  async function salvaCampi() {
+    campi.forEach((c, i) => c.ordine = i);
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'saveFields', password, campi })
+    });
+    const data = await res.json();
+    document.getElementById('esitoCampi').textContent = data.ok ? ' Salvato.' : ' Errore nel salvataggio.';
+  }
+
+  async function caricaIscrizioni() {
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'getSubmissions', password })
+    });
+    ultimeIscrizioni = await res.json();
+    const div = document.getElementById('tabellaIscrizioni');
+    if (!ultimeIscrizioni.intestazioni || ultimeIscrizioni.intestazioni.length === 0) {
+      div.innerHTML = '<p>Nessuna iscrizione ancora.</p>';
+      return;
+    }
+    let html = '<table><tr>' + ultimeIscrizioni.intestazioni.map(h => `<th>${h}</th>`).join('') + '</tr>';
+    ultimeIscrizioni.righe.forEach(r => {
+      html += '<tr>' + r.map(v => `<td>${v}</td>`).join('') + '</tr>';
+    });
+    html += '</table>';
+    div.innerHTML = html;
+  }
+
+  async function caricaSchedaEmail() {
+    if (!ultimeIscrizioni.intestazioni || ultimeIscrizioni.intestazioni.length === 0) {
+      await caricaIscrizioni();
+    }
+    const selColonna = document.getElementById('colonnaEmail');
+    const scelta = selColonna.value;
+    selColonna.innerHTML = ultimeIscrizioni.intestazioni.map(h => `<option value="${h}">${h}</option>`).join('');
+    // prova a indovinare la colonna email, altrimenti mantieni la scelta precedente
+    if (scelta && ultimeIscrizioni.intestazioni.includes(scelta)) {
+      selColonna.value = scelta;
+    } else {
+      const indovinata = ultimeIscrizioni.intestazioni.find(h => h.toLowerCase().includes('mail'));
+      if (indovinata) selColonna.value = indovinata;
+    }
+    disegnaDestinatari();
+  }
+
+  function disegnaDestinatari() {
+    const div = document.getElementById('elencoDestinatari');
+    if (!ultimeIscrizioni.righe || ultimeIscrizioni.righe.length === 0) {
+      div.innerHTML = '<p>Nessun iscritto disponibile.</p>';
+      return;
+    }
+    const idxEmail = ultimeIscrizioni.intestazioni.indexOf(document.getElementById('colonnaEmail').value);
+    let html = '<p><label><input type="checkbox" checked onchange="selezionaTutti(this)"> Seleziona tutti</label></p>';
+    ultimeIscrizioni.righe.forEach((r, i) => {
+      html += `<label style="display:block"><input type="checkbox" class="dest" checked data-riga="${i}"> ${r[idxEmail] || '(indirizzo mancante)'}</label>`;
+    });
+    div.innerHTML = html;
+  }
+
+  function selezionaTutti(cb) {
+    document.querySelectorAll('.dest').forEach(el => el.checked = cb.checked);
+  }
+
+  function sostituisciSegnaposto(testo, riga) {
+    return testo.replace(/\{\{(.*?)\}\}/g, (match, nomeColonna) => {
+      const idx = ultimeIscrizioni.intestazioni.indexOf(nomeColonna.trim());
+      return idx >= 0 ? riga[idx] : match;
+    });
+  }
+
+  async function inviaEmailATutti() {
+    const oggetto = document.getElementById('oggettoEmail').value;
+    const corpo = document.getElementById('corpoEmail').value;
+    const idxEmail = ultimeIscrizioni.intestazioni.indexOf(document.getElementById('colonnaEmail').value);
+    if (!oggetto || !corpo) {
+      alert('Inserisci oggetto e testo del messaggio.');
+      return;
+    }
+    const selezionati = Array.from(document.querySelectorAll('.dest:checked')).map(el => Number(el.dataset.riga));
+    if (selezionati.length === 0) {
+      alert('Seleziona almeno un destinatario.');
+      return;
+    }
+    const esito = document.getElementById('esitoInvio');
+    esito.innerHTML = '';
+    for (const i of selezionati) {
+      const riga = ultimeIscrizioni.righe[i];
+      const destinatario = riga[idxEmail];
+      const rigaEsito = document.createElement('div');
+      rigaEsito.textContent = destinatario + ': invio in corso...';
+      esito.appendChild(rigaEsito);
+      if (!destinatario) {
+        rigaEsito.textContent = '(riga senza indirizzo email) saltata';
+        continue;
+      }
+      try {
+        const res = await fetch(BACKEND_URL, {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'inviaMail',
+            password,
+            destinatario,
+            oggetto: sostituisciSegnaposto(oggetto, riga),
+            corpo: sostituisciSegnaposto(corpo, riga)
+          })
+        });
+        const data = await res.json();
+        rigaEsito.textContent = destinatario + ': ' + (data.ok ? 'inviata' : 'errore, ' + (data.errore || ''));
+      } catch (err) {
+        rigaEsito.textContent = destinatario + ': errore di connessione';
+      }
+    }
+  }
+
+  async function caricaLogEmail() {
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'getLogEmail', password })
+    });
+    const dati = await res.json();
+    const div = document.getElementById('tabellaLogEmail');
+    if (!dati.intestazioni || dati.intestazioni.length === 0) {
+      div.innerHTML = '<p>Nessun invio registrato ancora.</p>';
+      return;
+    }
+    let html = '<table><tr>' + dati.intestazioni.map(h => `<th>${h}</th>`).join('') + '</tr>';
+    dati.righe.slice().reverse().forEach(r => {
+      html += '<tr>' + r.map(v => `<td>${v}</td>`).join('') + '</tr>';
+    });
+    html += '</table>';
+    div.innerHTML = html;
+  }
+
+  function scaricaExcel() {
+    if (!ultimeIscrizioni.intestazioni || ultimeIscrizioni.intestazioni.length === 0) {
+      alert('Nessun dato da esportare, aggiorna prima elenco.');
+      return;
+    }
+    const dati = [ultimeIscrizioni.intestazioni, ...ultimeIscrizioni.righe];
+    const foglio = XLSX.utils.aoa_to_sheet(dati);
+    const cartella = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(cartella, foglio, 'Iscrizioni');
+    XLSX.writeFile(cartella, 'iscrizioni.xlsx');
+  }
+</script>
+</body>
+</html>
