@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 20 -->
+<!-- rev. 21 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -111,7 +111,7 @@
 </style>
 </head>
 <body>
-<div class="versione">rev. 20</div>
+<div class="versione">rev. 21</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -629,9 +629,15 @@
       return;
     }
     const idxEmail = ultimeIscrizioni.intestazioni.indexOf(document.getElementById('colonnaEmail').value);
+    const idxCognome = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'cognome');
+    const idxNome = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'nome');
     const destinatari = ultimeIscrizioni.righe
       .map((r, i) => ({ r, i }))
-      .filter(({ r }) => (r[idxColf] || '').toString().trim().toLowerCase() === 'si');
+      .filter(({ r }) => (r[idxColf] || '').toString().trim().toLowerCase() === 'si')
+      .sort((a, b) => {
+        const chiave = (x) => ((idxCognome >= 0 ? x.r[idxCognome] : '') + ' ' + (idxNome >= 0 ? x.r[idxNome] : '')).toLowerCase();
+        return chiave(a).localeCompare(chiave(b), 'it');
+      });
 
     if (destinatari.length === 0) {
       div.innerHTML = '<p>Nessun iscritto ha Colf e badanti impostato su Si.</p>';
@@ -640,7 +646,9 @@
 
     let html = '<p><label><input type="checkbox" checked onchange="selezionaTutti(this)"> Seleziona tutti</label></p>';
     destinatari.forEach(({ r, i }) => {
-      html += `<label style="display:block"><input type="checkbox" class="dest" checked data-riga="${i}"> ${r[idxEmail] || '(indirizzo mancante)'}</label>`;
+      const nominativo = [idxCognome >= 0 ? r[idxCognome] : '', idxNome >= 0 ? r[idxNome] : ''].filter(Boolean).join(' ');
+      const etichetta = nominativo ? `${nominativo} — ${r[idxEmail] || '(indirizzo mancante)'}` : (r[idxEmail] || '(indirizzo mancante)');
+      html += `<label style="display:block"><input type="checkbox" class="dest" checked data-riga="${i}"> ${etichetta}</label>`;
     });
     div.innerHTML = html;
   }
