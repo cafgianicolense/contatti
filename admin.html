@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 48 -->
+<!-- rev. 49 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -161,7 +161,7 @@
 </style>
 </head>
 <body>
-<div class="versione">Designed by Gianluca Cioè · rev. 48</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 49</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -219,12 +219,8 @@
 
     <div id="tabEmail" class="nascosto">
       <h2>Invio mail colf/badanti</h2>
-      <p class="nota">Solo gli iscritti con Colf e badanti a Si. Usa segnaposto come <code>{{Nome}}</code> o <code>{{Cognome}}</code> nel testo per personalizzare ogni email.</p>
+      <p class="nota">Solo gli iscritti con Colf e badanti a Si. Le righe in rosa hanno un pagamento non in regola. Usa segnaposto come <code>{{Nome}}</code> o <code>{{Cognome}}</code> per personalizzare ogni email.</p>
       <button class="secondario" onclick="caricaSchedaEmail()">Aggiorna elenco</button>
-      <br><br>
-      <label>Colonna con l'indirizzo email<br>
-        <select id="colonnaEmail" onchange="disegnaDestinatari()"></select>
-      </label>
       <br><br>
       <label>Oggetto<br>
         <input type="text" id="oggettoEmail" style="width:100%;box-sizing:border-box">
@@ -233,6 +229,9 @@
       <label>Testo del messaggio<br>
         <textarea id="corpoEmail" rows="8" style="width:100%;box-sizing:border-box"></textarea>
       </label>
+      <br><br>
+      <button class="secondario" onclick="salvaModelloEmailTesto()">Salva oggetto e testo per la prossima volta</button>
+      <span id="esitoModelloEmail"></span>
       <br><br>
       <div id="elencoDestinatari"></div>
       <br>
@@ -964,17 +963,47 @@
 
   async function caricaSchedaEmail() {
     await caricaIscrizioni();
-    const selColonna = document.getElementById('colonnaEmail');
-    const scelta = selColonna.value;
-    selColonna.innerHTML = ultimeIscrizioni.intestazioni.map(h => `<option value="${h}">${h}</option>`).join('');
-    // prova a indovinare la colonna email, altrimenti mantieni la scelta precedente
-    if (scelta && ultimeIscrizioni.intestazioni.includes(scelta)) {
-      selColonna.value = scelta;
-    } else {
-      const indovinata = ultimeIscrizioni.intestazioni.find(h => h.toLowerCase().includes('mail'));
-      if (indovinata) selColonna.value = indovinata;
-    }
+    await caricaBustePaga();
+    await caricaModelloEmail();
     disegnaDestinatari();
+  }
+
+  async function caricaModelloEmail() {
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'getModelloEmail', password })
+    });
+    const data = await res.json();
+    document.getElementById('oggettoEmail').value = data.oggetto || '';
+    document.getElementById('corpoEmail').value = data.corpo || '';
+  }
+
+  async function salvaModelloEmailTesto() {
+    const oggetto = document.getElementById('oggettoEmail').value;
+    const corpo = document.getElementById('corpoEmail').value;
+    const esito = document.getElementById('esitoModelloEmail');
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'saveModelloEmail', password, oggetto, corpo })
+    });
+    const data = await res.json();
+    esito.textContent = data.ok ? ' Salvato.' : ' Errore, riprova.';
+  }
+
+  // Vero se quel cliente ha almeno una riga nelle Buste paga con il
+  // pagamento scaduto, a prescindere dall'anno o dal dipendente.
+  function clienteHaPagamentoNonInRegola(cognome, nome) {
+    if (!ultimeBustePaga.intestazioni || ultimeBustePaga.intestazioni.length === 0) return false;
+    const iCognome = ultimeBustePaga.intestazioni.indexOf('Cognome');
+    const iNome = ultimeBustePaga.intestazioni.indexOf('Nome');
+    const iPagatoMese = ultimeBustePaga.intestazioni.indexOf('PagatoFinoMese');
+    const iPagatoAnno = ultimeBustePaga.intestazioni.indexOf('PagatoFinoAnno');
+    if (iCognome < 0 || iNome < 0) return false;
+    return ultimeBustePaga.righe.some(r =>
+      String(r[iCognome] || '').toLowerCase() === String(cognome || '').toLowerCase() &&
+      String(r[iNome] || '').toLowerCase() === String(nome || '').toLowerCase() &&
+      pagamentoScaduto(r[iPagatoMese], r[iPagatoAnno])
+    );
   }
 
   function disegnaDestinatari() {
@@ -988,7 +1017,7 @@
       div.innerHTML = '<p class="nota">Manca il campo "Colf e badanti" tra i campi del form. Aggiungilo dalla scheda Gestione campi per poter usare questo invio.</p>';
       return;
     }
-    const idxEmail = ultimeIscrizioni.intestazioni.indexOf(document.getElementById('colonnaEmail').value);
+    const idxEmail = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().includes('mail'));
     const idxCognome = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'cognome');
     const idxNome = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'nome');
     const destinatari = ultimeIscrizioni.righe
@@ -1004,13 +1033,21 @@
       return;
     }
 
-    let html = '<p><label><input type="checkbox" checked onchange="selezionaTutti(this)"> Seleziona tutti</label></p>';
+    let html = '<table><tr><th><input type="checkbox" checked onchange="selezionaTutti(this)"></th><th>Cliente</th><th>Email</th><th>Pagamento</th></tr>';
     destinatari.forEach(({ r, i }) => {
-      const nominativo = [idxCognome >= 0 ? r[idxCognome] : '', idxNome >= 0 ? r[idxNome] : ''].filter(Boolean).join(' ');
-      const etichetta = nominativo ? `${nominativo} — ${r[idxEmail] || '(indirizzo mancante)'}` : (r[idxEmail] || '(indirizzo mancante)');
-      html += `<label style="display:block"><input type="checkbox" class="dest" checked data-riga="${i}"> ${etichetta}</label>`;
+      const cognome = idxCognome >= 0 ? r[idxCognome] : '';
+      const nome = idxNome >= 0 ? r[idxNome] : '';
+      const nominativo = [cognome, nome].filter(Boolean).join(' ') || '(senza nome)';
+      const nonInRegola = clienteHaPagamentoNonInRegola(cognome, nome);
+      html += `<tr class="${nonInRegola ? 'riga-scaduta' : ''}">
+        <td><input type="checkbox" class="dest" checked data-riga="${i}"></td>
+        <td>${nominativo}</td>
+        <td>${r[idxEmail] || '(indirizzo mancante)'}</td>
+        <td>${nonInRegola ? 'Da regolarizzare' : 'In regola'}</td>
+      </tr>`;
     });
-    div.innerHTML = html;
+    html += '</table>';
+    div.innerHTML = '<div class="scroll-tabella">' + html + '</div>';
   }
 
   function selezionaTutti(cb) {
@@ -1027,7 +1064,7 @@
   async function inviaEmailATutti() {
     const oggetto = document.getElementById('oggettoEmail').value;
     const corpo = document.getElementById('corpoEmail').value;
-    const idxEmail = ultimeIscrizioni.intestazioni.indexOf(document.getElementById('colonnaEmail').value);
+    const idxEmail = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().includes('mail'));
     if (!oggetto || !corpo) {
       alert('Inserisci oggetto e testo del messaggio.');
       return;
@@ -1079,12 +1116,22 @@
       div.innerHTML = '<p>Nessun invio registrato ancora.</p>';
       return;
     }
-    let html = '<table><tr>' + dati.intestazioni.map(h => `<th>${h}</th>`).join('') + '</tr>';
+    const idxTimestamp = dati.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'timestamp');
+    const ordine = dati.intestazioni.map((h, i) => i).filter(i => i !== idxTimestamp);
+    if (idxTimestamp >= 0) ordine.push(idxTimestamp);
+    let html = '<table><tr>' + ordine.map(i => `<th>${dati.intestazioni[i]}</th>`).join('') + '</tr>';
     dati.righe.slice().reverse().forEach(r => {
-      html += '<tr>' + r.map(v => `<td>${v}</td>`).join('') + '</tr>';
+      html += '<tr>' + ordine.map(i => `<td>${i === idxTimestamp ? formattaDataOra(r[i]) : r[i]}</td>`).join('') + '</tr>';
     });
     html += '</table>';
-    div.innerHTML = html;
+    div.innerHTML = '<div class="scroll-tabella">' + html + '</div>';
+  }
+
+  function formattaDataOra(valore) {
+    if (!valore) return '';
+    const d = new Date(valore);
+    if (isNaN(d)) return valore;
+    return d.toLocaleString('it-IT');
   }
 
   function scaricaExcel() {
