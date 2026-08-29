@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 34 -->
+<!-- rev. 35 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -86,6 +86,9 @@
   th.col-azioni { background: var(--paper); position: sticky; top: 0; z-index: 3; }
   th { position: sticky; top: 0; z-index: 2; }
   tr:hover td.col-azioni { background: #fbfaf7; }
+  .riga-scaduta td { background: #c96b8f !important; color: #fff; }
+  .riga-scaduta td.col-azioni { background: #c96b8f !important; }
+  .riga-scaduta:hover td { background: #b85c7e !important; }
   .azioni-verticali { display: flex; flex-direction: column; gap: 4px; }
   .azioni-verticali button { padding: 4px 8px; font-size: 11px; width: 100%; white-space: nowrap; }
   .cognome-cliccabile { cursor: pointer; text-decoration: underline dotted; text-decoration-color: var(--line); }
@@ -142,7 +145,7 @@
 </style>
 </head>
 <body>
-<div class="versione">rev. 34</div>
+<div class="versione">rev. 35</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -972,6 +975,20 @@
   const MESI_BREVI = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
   let ultimeBustePaga = { intestazioni: [], righe: [] };
 
+  // Vero se il "Pagato fino a" indicato e gia passato rispetto al mese
+  // corrente. Se manca il mese o l'anno, non si può dire se sia scaduto,
+  // quindi non viene segnalato.
+  function pagamentoScaduto(meseTesto, annoTesto) {
+    const indiceMese = MESI_BUSTA_PAGA.indexOf(meseTesto);
+    const anno = parseInt(annoTesto, 10);
+    if (indiceMese === -1 || !anno) return false;
+    const oggi = new Date();
+    const annoCorrente = oggi.getFullYear();
+    const meseCorrente = oggi.getMonth() + 1;
+    const mesePagato = indiceMese + 1;
+    return anno < annoCorrente || (anno === annoCorrente && mesePagato < meseCorrente);
+  }
+
   async function caricaSchedaBustePaga() {
     await caricaIscrizioni();
     popolaClientiNuovaBustaPaga();
@@ -1069,7 +1086,8 @@
 
     righe.forEach(({ r, indiceOriginale }) => {
       const dipendente = iDipendente >= 0 ? (r[iDipendente] || '') : '';
-      html += `<tr><td>${r[iCognome]} ${r[iNome]}</td><td>${dipendente || '-'}</td><td>${r[iAnno]}</td>`;
+      const scaduto = pagamentoScaduto(r[iPagatoMese], r[iPagatoAnno]);
+      html += `<tr class="${scaduto ? 'riga-scaduta' : ''}"><td>${r[iCognome]} ${r[iNome]}</td><td>${dipendente || '-'}</td><td>${r[iAnno]}</td>`;
       iMesi.forEach((colIdx, i) => {
         const fatto = r[colIdx] === true || r[colIdx] === 'TRUE' || r[colIdx] === 'VERO';
         html += `<td style="text-align:center"><input type="checkbox" ${fatto ? 'checked' : ''} onchange="aggiornaCellaBustaPaga(${indiceOriginale}, '${MESI_BUSTA_PAGA[i]}', this.checked)"></td>`;
