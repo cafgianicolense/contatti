@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 29 -->
+<!-- rev. 31 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -142,7 +142,7 @@
 </style>
 </head>
 <body>
-<div class="versione">rev. 29</div>
+<div class="versione">rev. 31</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -553,8 +553,19 @@
       const div = document.createElement('div');
       div.className = 'campo-modale';
       const valore = riga[idx] != null ? String(riga[idx]) : '';
-      div.innerHTML = `<label>${intestazione}</label><input type="text" data-colonna="${idx}">`;
-      div.querySelector('input').value = valore;
+      const valoreNorm = valore.trim().toLowerCase();
+      if (valoreNorm === 'si' || valoreNorm === 'no') {
+        // Campo Si/No, es. Colf e badanti o qualunque altro campo a
+        // spunta: si mostra come flag, non come testo libero.
+        div.innerHTML = `<label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" data-colonna="${idx}" data-flag="true" style="width:17px;height:17px;accent-color:var(--blue)">
+          <span>${intestazione}</span>
+        </label>`;
+        div.querySelector('input').checked = (valoreNorm === 'si');
+      } else {
+        div.innerHTML = `<label>${intestazione}</label><input type="text" data-colonna="${idx}">`;
+        div.querySelector('input').value = valore;
+      }
       corpo.appendChild(div);
     });
     const btn = document.getElementById('btnConfermaModale');
@@ -570,7 +581,7 @@
     const dati = {};
     document.querySelectorAll('#corpoModale input').forEach(input => {
       const intestazione = ultimeIscrizioni.intestazioni[Number(input.dataset.colonna)];
-      dati[intestazione] = input.value;
+      dati[intestazione] = input.dataset.flag === 'true' ? (input.checked ? 'Si' : 'No') : input.value;
     });
     try {
       const res = await fetch(BACKEND_URL, {
@@ -1052,7 +1063,7 @@
     const intestazioni = ultimeBustePaga.intestazioni;
     const idx = (nome) => intestazioni.indexOf(nome);
     const iCognome = idx('Cognome'), iNome = idx('Nome'), iDipendente = idx('Dipendente'), iAnno = idx('Anno'),
-      iPagatoMese = idx('PagatoFinoMese'), iPagatoAnno = idx('PagatoFinoAnno');
+      iPagatoMese = idx('PagatoFinoMese'), iPagatoAnno = idx('PagatoFinoAnno'), iNota = idx('NotaPagamento');
     const iMesi = MESI_BUSTA_PAGA.map(m => idx(m));
 
     const righe = ultimeBustePaga.righe.map((r, indiceOriginale) => ({ r, indiceOriginale }));
@@ -1063,7 +1074,7 @@
 
     let html = '<table><tr><th>Cliente</th><th>Dipendente</th><th>Anno</th>' +
       MESI_BREVI.map(m => `<th>${m}</th>`).join('') +
-      '<th>Pagato fino a</th><th class="col-azioni">Azioni</th></tr>';
+      '<th>Pagato fino a</th><th>Nota pagamento</th><th class="col-azioni">Azioni</th></tr>';
 
     righe.forEach(({ r, indiceOriginale }) => {
       const dipendente = iDipendente >= 0 ? (r[iDipendente] || '') : '';
@@ -1081,6 +1092,11 @@
           <option value="">-</option>
           ${annoOpzioni(r[iPagatoAnno])}
         </select>
+      </td>
+      <td>
+        <input type="text" value="${(r[iNota] || '').toString().replace(/"/g,'&quot;')}"
+          onchange="aggiornaCellaBustaPaga(${indiceOriginale}, 'NotaPagamento', this.value)"
+          placeholder="es. inviata fattura, +1 contributo" style="width:180px">
       </td>
       <td class="col-azioni"><button class="pericolo" onclick="eliminaRigaBustaPaga(${indiceOriginale})">Elimina</button></td>
       </tr>`;
