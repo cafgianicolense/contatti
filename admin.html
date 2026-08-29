@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 44 -->
+<!-- rev. 45 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -161,7 +161,7 @@
 </style>
 </head>
 <body>
-<div class="versione">Designed by Gianluca Cioè · rev. 44</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 45</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -624,22 +624,32 @@
     document.getElementById('titoloModale').textContent = 'Modifica anagrafica';
     const corpo = document.getElementById('corpoModale');
     corpo.innerHTML = '';
-    ultimeIscrizioni.intestazioni.forEach((intestazione, idx) => {
-      if (!intestazione || intestazione.toLowerCase().trim() === 'timestamp') return;
+
+    // I campi da mostrare sono quelli gia sul foglio, piu quelli definiti
+    // in Gestione campi ma mai comparsi ancora (es. rimasti sempre non
+    // attivi sul modulo pubblico, come un campo pensato per restare solo
+    // interno). Per questi ultimi non esiste ancora un indice riga, il
+    // valore parte vuoto e la colonna si crea da sola al primo salvataggio.
+    const nomiEsistenti = ultimeIscrizioni.intestazioni.filter(h => h && h.toLowerCase().trim() !== 'timestamp');
+    const nomiExtra = (campi || []).map(c => c.etichetta).filter(nome => nome && !nomiEsistenti.includes(nome));
+    const tuttiNomi = [...nomiEsistenti, ...nomiExtra];
+
+    tuttiNomi.forEach(intestazione => {
+      const idx = ultimeIscrizioni.intestazioni.indexOf(intestazione);
       const div = document.createElement('div');
       div.className = 'campo-modale';
-      const valore = riga[idx] != null ? String(riga[idx]) : '';
+      const valore = idx >= 0 && riga[idx] != null ? String(riga[idx]) : '';
       const valoreNorm = valore.trim().toLowerCase();
       if (valoreNorm === 'si' || valoreNorm === 'no') {
         // Campo Si/No, es. Colf e badanti o qualunque altro campo a
         // spunta: si mostra come flag, non come testo libero.
         div.innerHTML = `<label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-          <input type="checkbox" data-colonna="${idx}" data-flag="true" style="width:17px;height:17px;accent-color:var(--blue)">
+          <input type="checkbox" data-colonna="${intestazione}" data-flag="true" style="width:17px;height:17px;accent-color:var(--blue)">
           <span>${intestazione}</span>
         </label>`;
         div.querySelector('input').checked = (valoreNorm === 'si');
       } else {
-        div.innerHTML = `<label>${intestazione}</label><input type="text" data-colonna="${idx}">`;
+        div.innerHTML = `<label>${intestazione}</label><input type="text" data-colonna="${intestazione}">`;
         div.querySelector('input').value = valore;
       }
       corpo.appendChild(div);
@@ -656,7 +666,7 @@
     btn.disabled = true;
     const dati = {};
     document.querySelectorAll('#corpoModale input').forEach(input => {
-      const intestazione = ultimeIscrizioni.intestazioni[Number(input.dataset.colonna)];
+      const intestazione = input.dataset.colonna;
       dati[intestazione] = input.dataset.flag === 'true' ? (input.checked ? 'Si' : 'No') : input.value;
     });
     try {
