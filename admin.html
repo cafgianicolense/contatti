@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 46 -->
+<!-- rev. 48 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -161,7 +161,7 @@
 </style>
 </head>
 <body>
-<div class="versione">Designed by Gianluca Cioè · rev. 46</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 48</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -192,18 +192,6 @@
       <br><br>
       <button onclick="salvaCampi()">Salva modifiche</button>
       <span id="esitoCampi"></span>
-
-      <div class="riquadro-nuova-bustapaga">
-        <h3>Importo tessera annuale</h3>
-        <p class="sottonota">Usato come riferimento per il rinnovo dei servizi diversi da colf e badanti. La scadenza di ogni cliente si calcola da sola, 365 giorni dal campo "Data tessera" in Anagrafica.</p>
-        <div class="riga-nuova-bustapaga">
-          <label>Importo, in euro
-            <input type="number" id="importoTessera" style="max-width:120px">
-          </label>
-          <button onclick="salvaImportoTessera()">Salva importo</button>
-        </div>
-        <span id="esitoImportoTessera"></span>
-      </div>
     </div>
 
     <div id="tabIscrizioni">
@@ -215,6 +203,18 @@
         <input type="text" id="cercaIscrizioni" placeholder="Scrivi per filtrare..." oninput="disegnaTabellaIscrizioni()" style="max-width:480px">
       </label>
       <div id="tabellaIscrizioni"></div>
+
+      <div class="riquadro-nuova-bustapaga">
+        <h3>Importo tessera annuale</h3>
+        <p class="sottonota">Usato come riferimento per il rinnovo dei servizi diversi da colf e badanti. La scadenza di ogni cliente si calcola da sola, 365 giorni dal campo "Data tessera".</p>
+        <div class="riga-nuova-bustapaga">
+          <label>Importo, in euro
+            <input type="number" id="importoTessera" style="max-width:120px">
+          </label>
+          <button onclick="salvaImportoTessera()">Salva importo</button>
+        </div>
+        <span id="esitoImportoTessera"></span>
+      </div>
     </div>
 
     <div id="tabEmail" class="nascosto">
@@ -378,7 +378,6 @@
     const data = await res.json();
     campi = data.campi || [];
     disegnaCampi();
-    caricaImportoTessera();
   }
 
   async function caricaImportoTessera() {
@@ -487,6 +486,7 @@
     });
     ultimeIscrizioni = await res.json();
     disegnaTabellaIscrizioni();
+    caricaImportoTessera();
   }
 
   // Avvolge l'HTML di una tabella con due barre di scorrimento orizzontali
@@ -538,7 +538,6 @@
       return;
     }
     const intestazioni = ultimeIscrizioni.intestazioni;
-    const idxDataNascita = intestazioni.findIndex(h => h && h.toLowerCase().includes('data di nascita'));
     const idxCognome = intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'cognome');
     const idxNome = intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'nome');
     // Colonne sempre nascoste dalla tabella, perche' poco utili da vedere
@@ -552,12 +551,13 @@
     const colonneVisibili = intestazioni.map((h, i) => i)
       .filter(i => !colonneNascoste.includes((intestazioni[i] || '').toLowerCase().trim()));
 
-    // Solo per la visualizzazione: tutto maiuscolo, tranne le colonne
-    // email che restano minuscole. Non tocca i dati salvati nel foglio.
+    // Solo per la visualizzazione: date in formato italiano, tutto
+    // maiuscolo, tranne le colonne email che restano minuscole. Non
+    // tocca i dati salvati nel foglio.
     const formattaCella = (valore, idx) => {
-      if (idx === idxDataNascita) return formattaData(valore);
-      if (valore === '' || valore == null) return valore;
       const intestazione = (intestazioni[idx] || '').toLowerCase();
+      if (intestazione.includes('data')) return formattaData(valore);
+      if (valore === '' || valore == null) return valore;
       return intestazione.includes('mail') ? String(valore).toLowerCase() : String(valore).toUpperCase();
     };
 
