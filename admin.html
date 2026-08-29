@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 35 -->
+<!-- rev. 36 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -48,7 +48,7 @@
     margin: 0 0 4px; color: var(--ink);
   }
   label { font-weight: 600; font-size: 13px; }
-  input[type=text], input[type=password], select, textarea {
+  input[type=text], input[type=password], input[type=number], select, textarea {
     padding: 10px 11px; border: 1px solid var(--line); border-radius: 2px;
     font-size: 14px; font-family: 'Inter', sans-serif; background: #fdfcfa; color: var(--ink);
     transition: border-color .15s ease, box-shadow .15s ease;
@@ -120,6 +120,22 @@
     user-select: none; flex-shrink: 0; line-height: 1;
   }
   .maniglia:active { cursor: grabbing; }
+  .riquadro-nuova-bustapaga {
+    background: #fdfcfa; border: 1px solid var(--line); padding: 18px 20px; margin: 14px 0 20px;
+  }
+  .riquadro-nuova-bustapaga h3 {
+    font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 15px; margin: 0 0 4px;
+  }
+  .sottonota { font-size: 12.5px; color: var(--muted); margin: 0 0 16px; }
+  .riga-nuova-bustapaga { display: flex; gap: 18px; align-items: flex-end; flex-wrap: wrap; }
+  .riga-nuova-bustapaga label {
+    display: flex; flex-direction: column; gap: 5px; font-size: 12px; font-weight: 600; color: var(--muted);
+  }
+  .riga-nuova-bustapaga select, .riga-nuova-bustapaga input {
+    font-weight: 400; color: var(--ink); min-width: 200px;
+  }
+  .riga-nuova-bustapaga .campo-anno input { min-width: 90px; }
+  .riga-nuova-bustapaga button { margin-top: 0; width: auto; padding: 10px 18px; }
   .riga-campo input[type=text] { flex: 1; min-width: 90px; max-width: 160px; }
   .riga-campo label { font-weight: 500; display: flex; align-items: center; gap: 4px; }
   .tabs { display: flex; gap: 4px; margin-bottom: 22px; border-bottom: 1px solid var(--line); }
@@ -145,7 +161,7 @@
 </style>
 </head>
 <body>
-<div class="versione">rev. 35</div>
+<div class="versione">rev. 36</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -229,21 +245,25 @@
       <h2>Buste paga, colf e badanti</h2>
       <p class="nota">Lo storico resta consultabile anche per chi passa a Colf e badanti su No.</p>
 
-      <div class="riga-campo" style="align-items:flex-end">
-        <label style="margin:0">Cliente<br>
-          <select id="clienteNuovaBustaPaga" style="min-width:300px"></select>
-        </label>
-        <label style="margin:0">Dipendente (se ne ha piu di uno)<br>
-          <input type="text" id="dipendenteNuovaBustaPaga" placeholder="Facoltativo" style="width:160px">
-        </label>
-        <label style="margin:0">Anno<br>
-          <input type="number" id="annoNuovaBustaPaga" style="width:90px">
-        </label>
-        <button onclick="aggiungiRigaBustaPaga()">Aggiungi anno da tracciare</button>
+      <div class="riquadro-nuova-bustapaga">
+        <h3>Inizia a tracciare un cliente</h3>
+        <p class="sottonota">Da fare una sola volta per ogni cliente e anno, poi la riga resta nella tabella sotto, pronta da compilare mese per mese.</p>
+        <div class="riga-nuova-bustapaga">
+          <label>Cliente
+            <select id="clienteNuovaBustaPaga"></select>
+          </label>
+          <label>Dipendente
+            <input type="text" id="dipendenteNuovaBustaPaga" placeholder="Solo se ne ha piu di uno">
+          </label>
+          <label class="campo-anno">Anno
+            <input type="number" id="annoNuovaBustaPaga">
+          </label>
+          <button onclick="aggiungiRigaBustaPaga()">Aggiungi anno da tracciare</button>
+        </div>
+        <span id="esitoNuovaBustaPaga"></span>
       </div>
-      <span id="esitoNuovaBustaPaga"></span>
 
-      <br><br>
+      <br>
       <button class="secondario" onclick="caricaBustePaga()">Aggiorna elenco</button>
       <div id="tabellaBustePaga" style="margin-top:14px"></div>
     </div>
