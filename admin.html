@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 23 -->
+<!-- rev. 24 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -127,7 +127,7 @@
 </style>
 </head>
 <body>
-<div class="versione">rev. 23</div>
+<div class="versione">rev. 24</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -136,7 +136,7 @@
   <h1>Pannello di amministrazione</h1>
 
   <div id="loginBox">
-    <label>Password<br><input type="password" id="password"></label>
+    <label>Password<br><input type="password" id="password" onkeydown="if(event.key==='Enter') login()"></label>
     <button onclick="login()" style="width:100%">Entra</button>
     <div id="erroreLogin"></div>
   </div>
@@ -165,6 +165,7 @@
       <button onclick="caricaIscrizioni()">Aggiorna elenco</button>
       <button onclick="scaricaExcel()">Scarica Excel</button>
       <p class="nota" style="margin-top:10px">Il pulsante Stampa mandato apre in una nuova scheda il modulo di mandato gia compilato con i dati dell'iscritto, pronto per la stampa e la firma a mano.</p>
+      <p class="nota">Per non affollare la tabella, sesso, comune e provincia di residenza, indirizzo, CAP, oggetto della richiesta, osservazioni e consenso privacy non sono mostrati qui, ma restano cercabili col campo sotto, e modificabili da Modifica anagrafica.</p>
       <label style="margin-top:14px">Cerca, per cognome, nome, data di nascita o qualunque altro dato<br>
         <input type="text" id="cercaIscrizioni" placeholder="Scrivi per filtrare..." oninput="disegnaTabellaIscrizioni()" style="max-width:340px">
       </label>
@@ -400,11 +401,19 @@
       return;
     }
     const intestazioni = ultimeIscrizioni.intestazioni;
-    const idxTimestamp = intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'timestamp');
     const idxDataNascita = intestazioni.findIndex(h => h && h.toLowerCase().includes('data di nascita'));
     const idxCognome = intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'cognome');
     const idxNome = intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'nome');
-    const colonneVisibili = intestazioni.map((h, i) => i).filter(i => i !== idxTimestamp);
+    // Colonne sempre nascoste dalla tabella, perche' poco utili da vedere
+    // a colpo d'occhio. Restano comunque cercabili col campo Cerca, e
+    // modificabili da Modifica anagrafica.
+    const colonneNascoste = [
+      'timestamp', 'sesso', 'comune di residenza', 'provincia di residenza',
+      'indirizzo', 'cap', 'oggetto della richiesta', 'osservazioni', 'consenso privacy'
+    ];
+    const colonneRicercabili = intestazioni.map((h, i) => i).filter(i => (intestazioni[i] || '').toLowerCase().trim() !== 'timestamp');
+    const colonneVisibili = intestazioni.map((h, i) => i)
+      .filter(i => !colonneNascoste.includes((intestazioni[i] || '').toLowerCase().trim()));
 
     const formattaCella = (valore, idx) => idx === idxDataNascita ? formattaData(valore) : valore;
 
@@ -413,7 +422,7 @@
     const testoCercato = (document.getElementById('cercaIscrizioni').value || '').trim().toLowerCase();
     if (testoCercato) {
       righe = righe.filter(({ r }) =>
-        colonneVisibili.some(i => String(formattaCella(r[i], i) || '').toLowerCase().includes(testoCercato))
+        colonneRicercabili.some(i => String(formattaCella(r[i], i) || '').toLowerCase().includes(testoCercato))
       );
     }
 
