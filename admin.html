@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 28 -->
+<!-- rev. 29 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -73,14 +73,21 @@
     font-size: 11px; letter-spacing: .04em; color: var(--muted);
   }
   tr:hover td { background: #fbfaf7; }
-  .scroll-tabella { max-width: 100%; overflow-x: auto; }
-  .scroll-tabella table { width: auto; min-width: 100%; }
+  .tabella-scorrevole { position: relative; }
+  .scroll-alto { overflow-x: auto; overflow-y: hidden; height: 14px; margin-top: 14px; }
+  .scroll-alto-spaziatore { height: 1px; }
+  .scroll-tabella { max-width: 100%; max-height: 560px; overflow: auto; }
+  .scroll-tabella table { width: auto; min-width: 100%; margin-top: 0; }
   .col-azioni {
     position: sticky; right: 0; background: var(--card);
     box-shadow: -6px 0 8px -6px rgba(0,0,0,0.18);
+    width: 1%;
   }
-  th.col-azioni { background: var(--paper); }
+  th.col-azioni { background: var(--paper); position: sticky; top: 0; z-index: 3; }
+  th { position: sticky; top: 0; z-index: 2; }
   tr:hover td.col-azioni { background: #fbfaf7; }
+  .azioni-verticali { display: flex; flex-direction: column; gap: 4px; }
+  .azioni-verticali button { padding: 4px 8px; font-size: 11px; width: 100%; white-space: nowrap; }
   .cognome-cliccabile { cursor: pointer; text-decoration: underline dotted; text-decoration-color: var(--line); }
   .cognome-cliccabile:hover { color: var(--blue); text-decoration-color: var(--blue); }
   .overlay-modale {
@@ -135,7 +142,7 @@
 </style>
 </head>
 <body>
-<div class="versione">rev. 28</div>
+<div class="versione">rev. 29</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -424,6 +431,41 @@
     disegnaTabellaIscrizioni();
   }
 
+  // Avvolge l'HTML di una tabella con due barre di scorrimento orizzontali
+  // sincronizzate, una sopra le intestazioni, sempre a portata di mano, e
+  // una sotto, quella naturale del contenitore con altezza limitata a
+  // circa 15 righe. cosi non serve mai scorrere lontano per trovarne una.
+  function avvolgiTabellaConScrollDoppio(html, idBase) {
+    return `
+      <div class="tabella-scorrevole">
+        <div class="scroll-alto" id="${idBase}Alto"><div class="scroll-alto-spaziatore" id="${idBase}Spaziatore"></div></div>
+        <div class="scroll-tabella" id="${idBase}Basso">${html}</div>
+      </div>
+    `;
+  }
+
+  function collegaScrollDoppio(idBase) {
+    const alto = document.getElementById(idBase + 'Alto');
+    const basso = document.getElementById(idBase + 'Basso');
+    const spaziatore = document.getElementById(idBase + 'Spaziatore');
+    if (!alto || !basso || !spaziatore) return;
+    const tabella = basso.querySelector('table');
+    spaziatore.style.width = (tabella ? tabella.scrollWidth : basso.scrollWidth) + 'px';
+    let sincronizzando = false;
+    alto.addEventListener('scroll', () => {
+      if (sincronizzando) return;
+      sincronizzando = true;
+      basso.scrollLeft = alto.scrollLeft;
+      sincronizzando = false;
+    });
+    basso.addEventListener('scroll', () => {
+      if (sincronizzando) return;
+      sincronizzando = true;
+      alto.scrollLeft = basso.scrollLeft;
+      sincronizzando = false;
+    });
+  }
+
   // Ridisegna la tabella a partire dai dati gia scaricati, senza una
   // nuova chiamata al backend: applica la formattazione italiana della
   // data di nascita, nasconde la colonna Timestamp, ordina per cognome e
@@ -477,14 +519,17 @@
         }
         return `<td>${valore}</td>`;
       }).join('') +
-        `<td class="col-azioni" style="white-space:nowrap">
-          <button class="secondario" onclick="stampaMandato(${indiceOriginale})">Stampa mandato</button>
-          <button class="secondario" onclick="apriModificaAnagrafica(${indiceOriginale})">Modifica anagrafica</button>
-          <button class="pericolo" onclick="apriElimina(${indiceOriginale})">Elimina</button>
+        `<td class="col-azioni">
+          <div class="azioni-verticali">
+            <button class="secondario" onclick="stampaMandato(${indiceOriginale})">Stampa mandato</button>
+            <button class="secondario" onclick="apriModificaAnagrafica(${indiceOriginale})">Modifica anagrafica</button>
+            <button class="pericolo" onclick="apriElimina(${indiceOriginale})">Elimina</button>
+          </div>
         </td></tr>`;
     });
     html += '</table>';
-    div.innerHTML = '<div class="scroll-tabella">' + html + '</div>';
+    div.innerHTML = avvolgiTabellaConScrollDoppio(html, 'iscrizioni');
+    collegaScrollDoppio('iscrizioni');
     if (righe.length === 0) div.innerHTML += '<p class="nota">Nessun risultato per questa ricerca.</p>';
   }
 
@@ -1041,7 +1086,8 @@
       </tr>`;
     });
     html += '</table>';
-    div.innerHTML = '<div class="scroll-tabella">' + html + '</div>';
+    div.innerHTML = avvolgiTabellaConScrollDoppio(html, 'bustePaga');
+    collegaScrollDoppio('bustePaga');
   }
 
   function annoOpzioni(annoSelezionato) {
