@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 45 -->
+<!-- rev. 46 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -161,7 +161,7 @@
 </style>
 </head>
 <body>
-<div class="versione">Designed by Gianluca Cioè · rev. 45</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 46</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -640,6 +640,7 @@
       div.className = 'campo-modale';
       const valore = idx >= 0 && riga[idx] != null ? String(riga[idx]) : '';
       const valoreNorm = valore.trim().toLowerCase();
+      const chiaveCampo = intestazione.toLowerCase();
       if (valoreNorm === 'si' || valoreNorm === 'no') {
         // Campo Si/No, es. Colf e badanti o qualunque altro campo a
         // spunta: si mostra come flag, non come testo libero.
@@ -648,6 +649,26 @@
           <span>${intestazione}</span>
         </label>`;
         div.querySelector('input').checked = (valoreNorm === 'si');
+      } else if (chiaveCampo.includes('data')) {
+        // Qualunque campo data, es. Data di nascita o Data tessera: un
+        // vero calendario invece di una casella di testo.
+        div.innerHTML = `<label>${intestazione}</label><input type="date" data-colonna="${intestazione}">`;
+        div.querySelector('input').value = valore;
+        if (chiaveCampo.includes('tessera')) {
+          const nota = document.createElement('div');
+          nota.className = 'nota-cf';
+          nota.id = 'notaScadenzaTessera';
+          nota.textContent = `Importo attuale: ${importoTesseraCorrente} €`;
+          div.appendChild(nota);
+          const input = div.querySelector('input');
+          const aggiornaNota = () => {
+            const s = calcolaScadenzaTessera(input.value);
+            nota.textContent = `Importo attuale: ${importoTesseraCorrente} €` +
+              (s ? ` — scadenza al ${s.testo}${s.scaduta ? ', gia scaduta' : ''}` : '');
+          };
+          input.addEventListener('input', aggiornaNota);
+          aggiornaNota();
+        }
       } else {
         div.innerHTML = `<label>${intestazione}</label><input type="text" data-colonna="${intestazione}">`;
         div.querySelector('input').value = valore;
