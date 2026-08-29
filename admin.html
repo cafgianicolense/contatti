@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 24 -->
+<!-- rev. 25 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -127,7 +127,7 @@
 </style>
 </head>
 <body>
-<div class="versione">rev. 24</div>
+<div class="versione">rev. 25</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -147,6 +147,7 @@
       <button id="tabIscrizioniBtn" onclick="mostraTab('iscrizioni')">Iscrizioni</button>
       <button id="tabEmailBtn" onclick="mostraTab('email')">Invio mail colf/badanti</button>
       <button id="tabPrivacyBtn" onclick="mostraTab('privacy')">Privacy</button>
+      <button id="tabBustePagaBtn" onclick="mostraTab('bustepaga')">Buste paga</button>
     </div>
 
     <div id="tabCampi">
@@ -211,6 +212,28 @@
       <br><br>
       <button onclick="salvaPrivacy()">Salva informativa</button>
       <span id="esitoPrivacy"></span>
+    </div>
+
+    <div id="tabBustePaga" class="nascosto">
+      <h2>Buste paga, colf e badanti</h2>
+      <p class="nota">
+        Qui si traccia solo quali mesi hanno gia la busta paga emessa, e a che punto e il pagamento. Compaiono tutti i clienti tracciati, anche quelli passati nel frattempo a Colf e badanti su No: lo storico resta sempre consultabile.
+      </p>
+
+      <div class="riga-campo" style="align-items:flex-end">
+        <label style="margin:0">Cliente<br>
+          <select id="clienteNuovaBustaPaga" style="min-width:220px"></select>
+        </label>
+        <label style="margin:0">Anno<br>
+          <input type="number" id="annoNuovaBustaPaga" style="width:90px">
+        </label>
+        <button onclick="aggiungiRigaBustaPaga()">Aggiungi anno da tracciare</button>
+      </div>
+      <span id="esitoNuovaBustaPaga"></span>
+
+      <br><br>
+      <button class="secondario" onclick="caricaBustePaga()">Aggiorna elenco</button>
+      <div id="tabellaBustePaga" style="margin-top:14px"></div>
     </div>
   </div>
 </div>
@@ -286,13 +309,16 @@
     document.getElementById('tabIscrizioni').classList.toggle('nascosto', nome !== 'iscrizioni');
     document.getElementById('tabEmail').classList.toggle('nascosto', nome !== 'email');
     document.getElementById('tabPrivacy').classList.toggle('nascosto', nome !== 'privacy');
+    document.getElementById('tabBustePaga').classList.toggle('nascosto', nome !== 'bustepaga');
     document.getElementById('tabCampiBtn').classList.toggle('attivo', nome === 'campi');
     document.getElementById('tabIscrizioniBtn').classList.toggle('attivo', nome === 'iscrizioni');
     document.getElementById('tabEmailBtn').classList.toggle('attivo', nome === 'email');
     document.getElementById('tabPrivacyBtn').classList.toggle('attivo', nome === 'privacy');
+    document.getElementById('tabBustePagaBtn').classList.toggle('attivo', nome === 'bustepaga');
     if (nome === 'iscrizioni') caricaIscrizioni();
     if (nome === 'email') caricaSchedaEmail();
     if (nome === 'privacy') caricaPrivacyAdmin();
+    if (nome === 'bustepaga') caricaSchedaBustePaga();
   }
 
   async function caricaCampi() {
@@ -874,6 +900,155 @@
     const cartella = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(cartella, foglio, 'Iscrizioni');
     XLSX.writeFile(cartella, 'iscrizioni.xlsx');
+  }
+
+  // --- Buste paga, colf e badanti ---
+
+  const MESI_BUSTA_PAGA = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+  const MESI_BREVI = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+  let ultimeBustePaga = { intestazioni: [], righe: [] };
+
+  async function caricaSchedaBustePaga() {
+    await caricaIscrizioni();
+    popolaClientiNuovaBustaPaga();
+    document.getElementById('annoNuovaBustaPaga').value = new Date().getFullYear();
+    await caricaBustePaga();
+  }
+
+  // Nel menu "Cliente" per aggiungere un anno da tracciare propone solo
+  // chi ha oggi Colf e badanti su Si, cosi non si parte per sbaglio a
+  // tracciare qualcuno che non segue piu questo servizio. Chi era gia
+  // tracciato in passato resta comunque visibile nella tabella sotto,
+  // anche se nel frattempo e passato a No.
+  function popolaClientiNuovaBustaPaga() {
+    const sel = document.getElementById('clienteNuovaBustaPaga');
+    const idxColf = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().includes('colf'));
+    const idxCognome = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'cognome');
+    const idxNome = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'nome');
+    const idxCF = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'codice fiscale');
+    sel.innerHTML = '';
+    if (idxColf === -1) {
+      sel.innerHTML = '<option value="">Manca il campo Colf e badanti</option>';
+      return;
+    }
+    const clienti = ultimeIscrizioni.righe
+      .filter(r => (r[idxColf] || '').toString().trim().toLowerCase() === 'si')
+      .map(r => ({
+        cognome: idxCognome >= 0 ? r[idxCognome] : '',
+        nome: idxNome >= 0 ? r[idxNome] : '',
+        cf: idxCF >= 0 ? r[idxCF] : ''
+      }))
+      .sort((a, b) => (a.cognome + a.nome).localeCompare(b.cognome + b.nome, 'it'));
+    if (clienti.length === 0) {
+      sel.innerHTML = '<option value="">Nessun cliente con Colf e badanti a Si</option>';
+      return;
+    }
+    sel.innerHTML = clienti.map(c =>
+      `<option value="${c.cognome}|||${c.nome}|||${c.cf}">${c.cognome} ${c.nome}</option>`
+    ).join('');
+  }
+
+  async function aggiungiRigaBustaPaga() {
+    const valore = document.getElementById('clienteNuovaBustaPaga').value;
+    const anno = document.getElementById('annoNuovaBustaPaga').value;
+    const esito = document.getElementById('esitoNuovaBustaPaga');
+    if (!valore || !anno) {
+      esito.textContent = ' Scegli un cliente e un anno.';
+      return;
+    }
+    const [cognome, nome, codiceFiscale] = valore.split('|||');
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'aggiungiRigaBustaPaga', password, cognome, nome, codiceFiscale, anno })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      esito.textContent = ' Aggiunto.';
+      await caricaBustePaga();
+    } else {
+      esito.textContent = ' ' + (data.errore || 'Errore, riprova.');
+    }
+  }
+
+  async function caricaBustePaga() {
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'getBustePaga', password })
+    });
+    ultimeBustePaga = await res.json();
+    disegnaTabellaBustePaga();
+  }
+
+  function disegnaTabellaBustePaga() {
+    const div = document.getElementById('tabellaBustePaga');
+    if (!ultimeBustePaga.righe || ultimeBustePaga.righe.length === 0) {
+      div.innerHTML = '<p>Nessun cliente tracciato ancora.</p>';
+      return;
+    }
+    const intestazioni = ultimeBustePaga.intestazioni;
+    const idx = (nome) => intestazioni.indexOf(nome);
+    const iCognome = idx('Cognome'), iNome = idx('Nome'), iAnno = idx('Anno'),
+      iPagatoMese = idx('PagatoFinoMese'), iPagatoAnno = idx('PagatoFinoAnno');
+    const iMesi = MESI_BUSTA_PAGA.map(m => idx(m));
+
+    const righe = ultimeBustePaga.righe.map((r, indiceOriginale) => ({ r, indiceOriginale }));
+    righe.sort((a, b) => {
+      const chiave = (x) => (x.r[iCognome] + ' ' + x.r[iNome]).toLowerCase();
+      return chiave(a).localeCompare(chiave(b), 'it') || (b.r[iAnno] - a.r[iAnno]);
+    });
+
+    let html = '<table><tr><th>Cliente</th><th>Anno</th>' +
+      MESI_BREVI.map(m => `<th>${m}</th>`).join('') +
+      '<th>Pagato fino a</th><th>Azioni</th></tr>';
+
+    righe.forEach(({ r, indiceOriginale }) => {
+      html += `<tr><td>${r[iCognome]} ${r[iNome]}</td><td>${r[iAnno]}</td>`;
+      iMesi.forEach((colIdx, i) => {
+        const fatto = r[colIdx] === true || r[colIdx] === 'TRUE' || r[colIdx] === 'VERO';
+        html += `<td style="text-align:center"><input type="checkbox" ${fatto ? 'checked' : ''} onchange="aggiornaCellaBustaPaga(${indiceOriginale}, '${MESI_BUSTA_PAGA[i]}', this.checked)"></td>`;
+      });
+      html += `<td>
+        <select onchange="aggiornaCellaBustaPaga(${indiceOriginale}, 'PagatoFinoMese', this.value)">
+          <option value="">-</option>
+          ${MESI_BUSTA_PAGA.map(m => `<option value="${m}" ${r[iPagatoMese] === m ? 'selected' : ''}>${m}</option>`).join('')}
+        </select>
+        <select onchange="aggiornaCellaBustaPaga(${indiceOriginale}, 'PagatoFinoAnno', this.value)">
+          <option value="">-</option>
+          ${annoOpzioni(r[iPagatoAnno])}
+        </select>
+      </td>
+      <td><button class="pericolo" onclick="eliminaRigaBustaPaga(${indiceOriginale})">Elimina</button></td>
+      </tr>`;
+    });
+    html += '</table>';
+    div.innerHTML = '<div class="scroll-tabella">' + html + '</div>';
+  }
+
+  function annoOpzioni(annoSelezionato) {
+    const oraAnno = new Date().getFullYear();
+    let opzioni = '';
+    for (let a = oraAnno - 2; a <= oraAnno + 2; a++) {
+      opzioni += `<option value="${a}" ${String(annoSelezionato) === String(a) ? 'selected' : ''}>${a}</option>`;
+    }
+    return opzioni;
+  }
+
+  async function aggiornaCellaBustaPaga(indiceRiga, colonna, valore) {
+    await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'aggiornaCellaBustaPaga', password, indiceRiga, colonna, valore })
+    });
+  }
+
+  async function eliminaRigaBustaPaga(indiceRiga) {
+    if (!confirm('Eliminare definitivamente questa riga di storico?')) return;
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'eliminaRigaBustaPaga', password, indiceRiga })
+    });
+    const data = await res.json();
+    if (data.ok) await caricaBustePaga();
+    else alert('Errore, riprova.');
   }
 </script>
 </body>
