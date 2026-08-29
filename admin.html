@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 38 -->
+<!-- rev. 41 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -161,7 +161,7 @@
 </style>
 </head>
 <body>
-<div class="versione">rev. 38</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 41</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -177,14 +177,14 @@
 
   <div id="pannello" class="nascosto">
     <div class="tabs">
-      <button id="tabCampiBtn" class="attivo" onclick="mostraTab('campi')">Gestione campi</button>
-      <button id="tabIscrizioniBtn" onclick="mostraTab('iscrizioni')">Anagrafica</button>
+      <button id="tabIscrizioniBtn" class="attivo" onclick="mostraTab('iscrizioni')">Anagrafica</button>
+      <button id="tabBustePagaBtn" onclick="mostraTab('bustepaga')">Buste paga C/B</button>
       <button id="tabEmailBtn" onclick="mostraTab('email')">Invio mail colf/badanti</button>
       <button id="tabPrivacyBtn" onclick="mostraTab('privacy')">Privacy</button>
-      <button id="tabBustePagaBtn" onclick="mostraTab('bustepaga')">Buste paga C/B</button>
+      <button id="tabCampiBtn" onclick="mostraTab('campi')">Gestione campi</button>
     </div>
 
-    <div id="tabCampi">
+    <div id="tabCampi" class="nascosto">
       <h2>Campi del form</h2>
       <p class="nota">I dati anagrafici fondamentali sono sempre presenti nel modulo pubblico e non compaiono qui. Trascina la maniglia &#8942;&#8942; per riordinare i campi.</p>
       <div id="listaCampi"></div>
@@ -194,7 +194,7 @@
       <span id="esitoCampi"></span>
     </div>
 
-    <div id="tabIscrizioni" class="nascosto">
+    <div id="tabIscrizioni">
       <h2>Anagrafica raccolta</h2>
       <button onclick="caricaIscrizioni()">Aggiorna elenco</button>
       <button onclick="scaricaExcel()">Scarica Excel</button>
@@ -328,6 +328,7 @@
         document.getElementById('pannello').classList.remove('nascosto');
         caricaCampi();
         caricaPrivacyInterna();
+        caricaIscrizioni();
       } else {
         document.getElementById('erroreLogin').textContent = 'Password errata.';
       }
@@ -508,7 +509,14 @@
     const colonneVisibili = intestazioni.map((h, i) => i)
       .filter(i => !colonneNascoste.includes((intestazioni[i] || '').toLowerCase().trim()));
 
-    const formattaCella = (valore, idx) => idx === idxDataNascita ? formattaData(valore) : valore;
+    // Solo per la visualizzazione: tutto maiuscolo, tranne le colonne
+    // email che restano minuscole. Non tocca i dati salvati nel foglio.
+    const formattaCella = (valore, idx) => {
+      if (idx === idxDataNascita) return formattaData(valore);
+      if (valore === '' || valore == null) return valore;
+      const intestazione = (intestazioni[idx] || '').toLowerCase();
+      return intestazione.includes('mail') ? String(valore).toLowerCase() : String(valore).toUpperCase();
+    };
 
     let righe = ultimeIscrizioni.righe.map((r, indiceOriginale) => ({ r, indiceOriginale }));
 
