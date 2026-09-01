@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Iscrizione CAF Gianicolense</title>
-<!-- rev. 19 -->
+<!-- rev. 20 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -129,7 +129,7 @@
 </style>
 </head>
 <body>
-<div class="versione">Designed by Gianluca Cioè · rev. 19</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 20</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -572,7 +572,8 @@
     e.preventDefault();
     const btn = formEl.querySelector('button');
     btn.disabled = true;
-    esitoEl.textContent = '';
+    btn.textContent = 'Invio in corso...';
+    esitoEl.innerHTML = '';
 
     const dati = {};
     [...CAMPI_FISSI, ...campiCorrenti].forEach(c => {
@@ -581,22 +582,34 @@
     });
     dati['Consenso privacy'] = document.getElementById('consensoPrivacy').checked ? 'Accettato' : 'Non accettato';
 
+    // Il server a volte risponde con qualche secondo di ritardo: si
+    // aspetta piu del solito prima di dichiarare un vero errore di
+    // connessione, invece di far credere subito che l'invio sia fallito.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
     try {
       const res = await fetch(BACKEND_URL, {
         method: 'POST',
-        body: JSON.stringify({ action: 'submit', dati })
+        body: JSON.stringify({ action: 'submit', dati }),
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
       const result = await res.json();
       if (result.ok) {
         esitoEl.innerHTML = '<span class="ok">Iscrizione inviata con successo.</span>';
         formEl.reset();
+      } else if (result.duplicato) {
+        esitoEl.innerHTML = '<span class="errore">Risulta gia registrata un\'iscrizione con questo codice fiscale. Se pensi sia un errore, parlane con lo sportello, senza inviare di nuovo il modulo.</span>';
       } else {
         esitoEl.innerHTML = '<span class="errore">Si è verificato un errore, riprova.</span>';
       }
     } catch (err) {
-      esitoEl.innerHTML = '<span class="errore">Errore di connessione, riprova.</span>';
+      esitoEl.innerHTML = '<span class="errore">Errore di connessione. Se hai gia provato piu volte, non serve inviare ancora, chiedi conferma allo sportello prima di riprovare.</span>';
     } finally {
+      clearTimeout(timeoutId);
       btn.disabled = false;
+      btn.textContent = 'Invia iscrizione';
     }
   });
 
