@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 58 -->
+<!-- rev. 59 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -171,7 +171,7 @@
 </style>
 </head>
 <body>
-<div class="versione">Designed by Gianluca Cioè · rev. 58</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 59</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -209,7 +209,7 @@
 
     <div id="tabIscrizioni">
       <h2>Anagrafica raccolta</h2>
-      <button onclick="caricaIscrizioni()">Aggiorna elenco</button>
+      <button onclick="caricaIscrizioni(true)">Aggiorna elenco</button>
       <button onclick="scaricaExcel()">Scarica Excel</button>
       <p class="nota" style="margin-top:10px">Alcune colonne meno usate sono nascoste dalla tabella ma restano cercabili. Doppio click sul cognome per modificare l'anagrafica.</p>
       <label style="margin-top:14px">Cerca, per cognome, nome, data di nascita o qualunque altro dato<br>
@@ -331,7 +331,7 @@
       </div>
 
       <br>
-      <button class="secondario" onclick="caricaBustePaga()">Aggiorna elenco</button>
+      <button class="secondario" onclick="caricaBustePaga(true)">Aggiorna elenco</button>
       <label style="margin-top:14px">Cerca, per cliente, dipendente o anno<br>
         <input type="text" id="cercaBustePaga" placeholder="Scrivi per filtrare..." oninput="disegnaTabellaBustePaga()" style="max-width:340px">
       </label>
@@ -359,11 +359,14 @@
   let password = '';
   let campi = [];
   let ultimeIscrizioni = { intestazioni: [], righe: [] };
+  let ultimeIscrizioniAggiornate = 0;
   let testoInformativaCorrente = '';
   let importoTesseraCorrente = '30';
   let ultimeBustePaga = { intestazioni: [], righe: [] };
+  let ultimeBustePagaAggiornate = 0;
   let ultimePratiche = { intestazioni: [], righe: [] };
   let tipiPraticaCorrenti = [];
+  const DURATA_CACHE_MS = 8000;
 
   // --- Ordinamento riutilizzabile, per intestazioni di colonna cliccabili ---
   // Uno stato per ogni tabella, ricorda quale colonna e in che verso.
@@ -615,12 +618,22 @@
     mostraEsitoTemporaneo(document.getElementById('esitoCampi'), data.ok ? ' Salvato.' : ' Errore nel salvataggio.');
   }
 
-  async function caricaIscrizioni() {
+  // Ricarica dal foglio solo se sono passati piu di DURATA_CACHE_MS
+  // dall'ultima volta, o se e' stato chiesto esplicitamente (forza=true,
+  // come fa il pulsante "Aggiorna elenco"). Cambiare scheda in rapida
+  // successione, cosa che succede spesso, non genera piu una nuova
+  // chiamata al foglio ogni volta se i dati sono ancora freschi.
+  async function caricaIscrizioni(forza) {
+    if (!forza && ultimeIscrizioni.intestazioni.length && Date.now() - ultimeIscrizioniAggiornate < DURATA_CACHE_MS) {
+      disegnaTabellaIscrizioni();
+      return;
+    }
     const res = await fetch(BACKEND_URL, {
       method: 'POST',
       body: JSON.stringify({ action: 'getSubmissions', password })
     });
     ultimeIscrizioni = await res.json();
+    ultimeIscrizioniAggiornate = Date.now();
     disegnaTabellaIscrizioni();
   }
 
@@ -769,39 +782,52 @@
     // attivi sul modulo pubblico, come un campo pensato per restare solo
     // interno). Per questi ultimi non esiste ancora un indice riga, il
     // valore parte vuoto e la colonna si crea da sola al primo salvataggio.
-    const nomiEsistenti = ultimeIscrizioni.intestazioni.filter(h => h && String(h).toLowerCase().trim() !== 'timestamp');
-    const nomiExtra = (campi || []).map(c => c.etichetta).filter(nome => nome && !nomiEsistenti.includes(nome));
-    const tuttiNomi = [...nomiEsistenti, ...nomiExtra];
+    //
+    // L'ordine e il tipo di ogni campo seguono sempre Gestione campi, mai
+    // il valore attuale: un campo configurato come Si/No, tipo "730",
+    // resta un flag anche se per qualche motivo il valore salvato non e
+    // esattamente "Si" o "No". Prima vengono i campi fissi
+    // dell'anagrafica, sempre nello stesso ordine, poi quelli configurati
+    // in Gestione campi nell'ordine scelto li, infine eventuali altre
+    // colonne rimaste sul foglio ma non piu configurate da nessuna parte,
+    // per le quali si usa un'euristica sul nome, come prima.
+    const CAMPI_FISSI_MODALE = [
+      { etichetta: 'Cognome', tipo: 'testo' },
+      { etichetta: 'Nome', tipo: 'testo' },
+      { etichetta: 'Sesso', tipo: 'select', opzioni: 'M,F' },
+      { etichetta: 'Data di nascita', tipo: 'data' },
+      { etichetta: 'Comune di nascita', tipo: 'testo' },
+      { etichetta: 'Codice fiscale', tipo: 'testo' }
+    ];
+    const vistiChiave = new Set();
+    const elencoCampi = [];
+    function aggiungiCampoModale(etichetta, tipo, opzioni) {
+      const nome = String(etichetta || '').trim();
+      if (!nome) return;
+      const chiave = nome.toLowerCase();
+      if (vistiChiave.has(chiave)) return;
+      vistiChiave.add(chiave);
+      elencoCampi.push({ etichetta: nome, tipo: tipo || null, opzioni: opzioni || '' });
+    }
+    CAMPI_FISSI_MODALE.forEach(c => aggiungiCampoModale(c.etichetta, c.tipo, c.opzioni));
+    (campi || []).forEach(c => aggiungiCampoModale(c.etichetta, c.tipo, c.opzioni));
+    ultimeIscrizioni.intestazioni.forEach(h => {
+      if (h && String(h).toLowerCase().trim() !== 'timestamp') aggiungiCampoModale(h, null, '');
+    });
 
-    tuttiNomi.forEach(intestazioneGrezza => {
-      // Un'etichetta scritta tutta di numeri, tipo "730", Google Sheets
-      // la restituisce come numero e non come testo: qui la si forza
-      // sempre a stringa prima di qualunque operazione su testo, cosi
-      // non manda piu in errore silenzioso l'apertura della finestra.
-      const intestazione = String(intestazioneGrezza);
-      const idx = ultimeIscrizioni.intestazioni.indexOf(intestazioneGrezza);
+    elencoCampi.forEach(({ etichetta: intestazione, tipo, opzioni }) => {
+      const idx = ultimeIscrizioni.intestazioni.findIndex(h => String(h) === intestazione);
       const div = document.createElement('div');
       div.className = 'campo-modale';
       const valore = idx >= 0 && riga[idx] != null ? String(riga[idx]) : '';
-      const valoreNorm = valore.trim().toLowerCase();
       const chiaveCampo = intestazione.toLowerCase();
-      if (valoreNorm === 'si' || valoreNorm === 'no') {
-        // Campo Si/No, es. Colf e badanti o qualunque altro campo a
-        // spunta: si mostra come flag, non come testo libero.
-        div.innerHTML = `<label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-          <input type="checkbox" data-colonna="${intestazione}" data-flag="true" style="width:17px;height:17px;accent-color:var(--blue)">
-          <span>${intestazione}</span>
-        </label>`;
-        div.querySelector('input').checked = (valoreNorm === 'si');
-      } else if (chiaveCampo.includes('data')) {
-        // Qualunque campo data, es. Data di nascita o Data tessera: un
-        // vero calendario invece di una casella di testo.
+
+      const creaInputData = () => {
         div.innerHTML = `<label>${intestazione}</label><input type="date" data-colonna="${intestazione}">`;
         div.querySelector('input').value = valore;
         if (chiaveCampo.includes('tessera')) {
           const nota = document.createElement('div');
           nota.className = 'nota-cf';
-          nota.id = 'notaScadenzaTessera';
           nota.textContent = `Importo attuale: ${importoTesseraCorrente} €`;
           div.appendChild(nota);
           const input = div.querySelector('input');
@@ -813,6 +839,41 @@
           input.addEventListener('input', aggiornaNota);
           aggiornaNota();
         }
+      };
+
+      if (tipo === 'checkbox') {
+        // Campo Si/No configurato come tale in Gestione campi: resta un
+        // flag a prescindere dal valore attuale, anche se vuoto.
+        div.innerHTML = `<label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" data-colonna="${intestazione}" data-flag="true" style="width:17px;height:17px;accent-color:var(--blue)">
+          <span>${intestazione}</span>
+        </label>`;
+        div.querySelector('input').checked = (valore.trim().toLowerCase() === 'si');
+      } else if (tipo === 'data') {
+        creaInputData();
+      } else if (tipo === 'select' && opzioni) {
+        const opz = opzioni.split(',').map(o => o.trim()).filter(Boolean);
+        div.innerHTML = `<label>${intestazione}</label><select data-colonna="${intestazione}">
+          <option value="">-</option>
+          ${opz.map(o => `<option value="${o}" ${o === valore ? 'selected' : ''}>${o}</option>`).join('')}
+        </select>`;
+      } else if (tipo === 'numero') {
+        div.innerHTML = `<label>${intestazione}</label><input type="number" data-colonna="${intestazione}">`;
+        div.querySelector('input').value = valore;
+      } else if (tipo === 'textarea') {
+        div.innerHTML = `<label>${intestazione}</label><textarea data-colonna="${intestazione}" rows="3" style="width:100%;box-sizing:border-box"></textarea>`;
+        div.querySelector('textarea').value = valore;
+      } else if (!tipo && (valore.trim().toLowerCase() === 'si' || valore.trim().toLowerCase() === 'no')) {
+        // Colonna non piu configurata da nessuna parte (es. rimossa da
+        // Gestione campi), ma il valore salvato lascia intuire che era
+        // un flag: si mantiene per compatibilita.
+        div.innerHTML = `<label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" data-colonna="${intestazione}" data-flag="true" style="width:17px;height:17px;accent-color:var(--blue)">
+          <span>${intestazione}</span>
+        </label>`;
+        div.querySelector('input').checked = (valore.trim().toLowerCase() === 'si');
+      } else if (!tipo && chiaveCampo.includes('data')) {
+        creaInputData();
       } else {
         div.innerHTML = `<label>${intestazione}</label><input type="text" data-colonna="${intestazione}">`;
         div.querySelector('input').value = valore;
@@ -830,7 +891,7 @@
     const btn = document.getElementById('btnConfermaModale');
     btn.disabled = true;
     const dati = {};
-    document.querySelectorAll('#corpoModale input').forEach(input => {
+    document.querySelectorAll('#corpoModale input, #corpoModale select, #corpoModale textarea').forEach(input => {
       const intestazione = input.dataset.colonna;
       dati[intestazione] = input.dataset.flag === 'true' ? (input.checked ? 'Si' : 'No') : input.value;
     });
@@ -842,7 +903,7 @@
       const data = await res.json();
       if (data.ok) {
         chiudiModale();
-        await caricaIscrizioni();
+        await caricaIscrizioni(true);
       } else {
         alert('Errore nel salvataggio, riprova.');
       }
@@ -881,7 +942,7 @@
       const data = await res.json();
       if (data.ok) {
         chiudiModale();
-        await caricaIscrizioni();
+        await caricaIscrizioni(true);
       } else {
         alert('Errore nell\'eliminazione, riprova.');
       }
@@ -1500,18 +1561,23 @@
     if (data.ok) {
       mostraEsitoTemporaneo(esito, ' Aggiunto.');
       document.getElementById('dipendenteNuovaBustaPaga').value = '';
-      await caricaBustePaga();
+      await caricaBustePaga(true);
     } else {
       mostraEsitoTemporaneo(esito, ' ' + (data.errore || 'Errore, riprova.'));
     }
   }
 
-  async function caricaBustePaga() {
+  async function caricaBustePaga(forza) {
+    if (!forza && ultimeBustePaga.intestazioni.length && Date.now() - ultimeBustePagaAggiornate < DURATA_CACHE_MS) {
+      disegnaTabellaBustePaga();
+      return;
+    }
     const res = await fetch(BACKEND_URL, {
       method: 'POST',
       body: JSON.stringify({ action: 'getBustePaga', password })
     });
     ultimeBustePaga = await res.json();
+    ultimeBustePagaAggiornate = Date.now();
     disegnaTabellaBustePaga();
   }
 
@@ -1613,7 +1679,7 @@
       body: JSON.stringify({ action: 'eliminaRigaBustaPaga', password, indiceRiga })
     });
     const data = await res.json();
-    if (data.ok) await caricaBustePaga();
+    if (data.ok) await caricaBustePaga(true);
     else alert('Errore, riprova.');
   }
 
