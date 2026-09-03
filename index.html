@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Iscrizione CAF Gianicolense</title>
-<!-- rev. 20 -->
+<!-- rev. 21 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -94,6 +94,15 @@
   #esito { margin-top: 18px; font-size: 14px; }
   .ok { color: var(--green); font-weight: 600; }
   .errore { color: var(--red); font-weight: 600; }
+  .successo { text-align: center; padding: 20px 6px 8px; }
+  .successo-icona {
+    width: 60px; height: 60px; border-radius: 50%; background: var(--green);
+    color: #fff; font-size: 30px; line-height: 60px; margin: 0 auto 18px;
+  }
+  .successo h1 {
+    font-size: 22px; line-height: 1.3; margin-bottom: 10px;
+  }
+  .successo .sottotitolo { max-width: 380px; margin: 0 auto; }
   .versione {
     position: fixed; bottom: 8px; right: 12px; font-size: 11px;
     color: var(--muted); opacity: 0.6; font-family: 'Inter', sans-serif;
@@ -129,7 +138,7 @@
 </style>
 </head>
 <body>
-<div class="versione">Designed by Gianluca Cioè · rev. 20</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 21</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -158,6 +167,12 @@
       </div>
     </div>
   </form>
+
+  <div id="schermataSuccesso" class="successo nascosto">
+    <div class="successo-icona">&#10003;</div>
+    <h1>Mandato completato<br>e salvato con successo</h1>
+    <p class="sottotitolo">La tua iscrizione è stata registrata. Se hai bisogno di inviarne una nuova, ricarica questa pagina.</p>
+  </div>
 
   <div id="esito"></div>
 </div>
@@ -597,8 +612,13 @@
       clearTimeout(timeoutId);
       const result = await res.json();
       if (result.ok) {
-        esitoEl.innerHTML = '<span class="ok">Iscrizione inviata con successo.</span>';
-        formEl.reset();
+        // Il modulo sparisce del tutto, non solo si svuota: cosi non e
+        // piu possibile inviarlo una seconda volta, l'unico modo per
+        // farlo e ricaricare la pagina da capo.
+        formEl.style.display = 'none';
+        esitoEl.innerHTML = '';
+        document.getElementById('schermataSuccesso').classList.remove('nascosto');
+        return;
       } else if (result.duplicato) {
         esitoEl.innerHTML = '<span class="errore">Risulta gia registrata un\'iscrizione con questo codice fiscale. Se pensi sia un errore, parlane con lo sportello, senza inviare di nuovo il modulo.</span>';
       } else {
