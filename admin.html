@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 54 -->
+<!-- rev. 56 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -171,7 +171,7 @@
 </style>
 </head>
 <body>
-<div class="versione">Designed by Gianluca Cioè · rev. 54</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 56</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -421,6 +421,17 @@
     return `<th class="th-ordinabile" onclick="ordinaTabella('${tabella}', ${colonna})">${testo}${freccia}</th>`;
   }
 
+  // Mostra un messaggio di esito (Salvato, Aggiunto, ecc.) e lo fa
+  // sparire da solo dopo un paio di secondi, cosi se si preme di nuovo
+  // lo stesso pulsante subito dopo, si vede chiaramente che e successo
+  // qualcosa di nuovo, invece di restare la stessa scritta di prima.
+  function mostraEsitoTemporaneo(elemento, testo, msDurata = 2500) {
+    if (!elemento) return;
+    elemento.textContent = testo;
+    clearTimeout(elemento._timeoutEsito);
+    elemento._timeoutEsito = setTimeout(() => { elemento.textContent = ''; }, msDurata);
+  }
+
   async function caricaPrivacyInterna() {
     const res = await fetch(BACKEND_URL + '?action=getPrivacy');
     const data = await res.json();
@@ -441,7 +452,7 @@
     });
     const data = await res.json();
     testoInformativaCorrente = testo;
-    document.getElementById('esitoPrivacy').textContent = data.ok ? ' Salvato.' : ' Errore nel salvataggio.';
+    mostraEsitoTemporaneo(document.getElementById('esitoPrivacy'), data.ok ? ' Salvato.' : ' Errore nel salvataggio.');
   }
 
   async function login() {
@@ -520,9 +531,9 @@
     const data = await res.json();
     if (data.ok) {
       importoTesseraCorrente = importo;
-      esito.textContent = ' Salvato.';
+      mostraEsitoTemporaneo(esito, ' Salvato.');
     } else {
-      esito.textContent = ' Errore, riprova.';
+      mostraEsitoTemporaneo(esito, ' Errore, riprova.');
     }
   }
 
@@ -589,14 +600,30 @@
     disegnaCampi();
   }
 
+  // Genera un nome interno a partire dall'etichetta (minuscolo, senza
+  // accenti, spazi trasformati in underscore), usato quando l'admin
+  // compila solo l'etichetta e lascia vuoto il nome interno. Senza
+  // questo, un campo senza nome interno viene scartato in silenzio alla
+  // rilettura, e sembra sparito.
+  function generaNomeInterno(testo) {
+    return (testo || '').toString().trim().toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+  }
+
   async function salvaCampi() {
-    campi.forEach((c, i) => c.ordine = i);
+    campi.forEach((c, i) => {
+      c.ordine = i;
+      if (!c.nome || !c.nome.trim()) c.nome = generaNomeInterno(c.etichetta);
+    });
+    disegnaCampi();
     const res = await fetch(BACKEND_URL, {
       method: 'POST',
       body: JSON.stringify({ action: 'saveFields', password, campi })
     });
     const data = await res.json();
-    document.getElementById('esitoCampi').textContent = data.ok ? ' Salvato.' : ' Errore nel salvataggio.';
+    mostraEsitoTemporaneo(document.getElementById('esitoCampi'), data.ok ? ' Salvato.' : ' Errore nel salvataggio.');
   }
 
   async function caricaIscrizioni() {
@@ -1109,7 +1136,7 @@
       body: JSON.stringify({ action: 'saveModelloEmail', password, oggetto, corpo })
     });
     const data = await res.json();
-    esito.textContent = data.ok ? ' Salvato.' : ' Errore, riprova.';
+    mostraEsitoTemporaneo(esito, data.ok ? ' Salvato.' : ' Errore, riprova.');
   }
 
   // Vero se quel cliente ha almeno una riga nelle Buste paga con il
@@ -1255,7 +1282,7 @@
       body: JSON.stringify({ action: 'saveModelloEmail', password, oggetto, corpo, tipo: 'massivo' })
     });
     const data = await res.json();
-    esito.textContent = data.ok ? ' Salvato.' : ' Errore, riprova.';
+    mostraEsitoTemporaneo(esito, data.ok ? ' Salvato.' : ' Errore, riprova.');
   }
 
   function disegnaDestinatariMassivo() {
@@ -1477,11 +1504,11 @@
     });
     const data = await res.json();
     if (data.ok) {
-      esito.textContent = ' Aggiunto.';
+      mostraEsitoTemporaneo(esito, ' Aggiunto.');
       document.getElementById('dipendenteNuovaBustaPaga').value = '';
       await caricaBustePaga();
     } else {
-      esito.textContent = ' ' + (data.errore || 'Errore, riprova.');
+      mostraEsitoTemporaneo(esito, ' ' + (data.errore || 'Errore, riprova.'));
     }
   }
 
@@ -1690,7 +1717,7 @@
       if (selTipo) selTipo.innerHTML = tipi.map(t => `<option value="${t}">${t}</option>`).join('');
       chiudiModale();
     } else {
-      esito.textContent = ' Errore, riprova.';
+      mostraEsitoTemporaneo(esito, ' Errore, riprova.');
     }
   }
 
@@ -1703,11 +1730,11 @@
     const conferma = document.getElementById('confermaPasswordImpostazioni').value;
     const esito = document.getElementById('esitoPasswordImpostazioni');
     if (!nuova || nuova.length < 4) {
-      esito.textContent = ' Almeno 4 caratteri.';
+      mostraEsitoTemporaneo(esito, ' Almeno 4 caratteri.');
       return;
     }
     if (nuova !== conferma) {
-      esito.textContent = ' Le due password non coincidono.';
+      mostraEsitoTemporaneo(esito, ' Le due password non coincidono.');
       return;
     }
     const res = await fetch(BACKEND_URL, {
@@ -1719,9 +1746,9 @@
       password = nuova;
       document.getElementById('nuovaPasswordImpostazioni').value = '';
       document.getElementById('confermaPasswordImpostazioni').value = '';
-      esito.textContent = ' Password cambiata.';
+      mostraEsitoTemporaneo(esito, ' Password cambiata.');
     } else {
-      esito.textContent = ' ' + (data.errore || 'Errore, riprova.');
+      mostraEsitoTemporaneo(esito, ' ' + (data.errore || 'Errore, riprova.'));
     }
   }
 
@@ -1741,10 +1768,10 @@
     });
     const data = await res.json();
     if (data.ok) {
-      esito.textContent = ' Aggiunta.';
+      mostraEsitoTemporaneo(esito, ' Aggiunta.');
       await caricaPratiche();
     } else {
-      esito.textContent = ' Errore, riprova.';
+      mostraEsitoTemporaneo(esito, ' Errore, riprova.');
     }
   }
 
