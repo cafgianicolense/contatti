@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 50 -->
+<!-- rev. 52 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -73,6 +73,8 @@
     font-size: 10.5px; letter-spacing: .03em; color: var(--muted);
   }
   tr:hover td { background: #fbfaf7; }
+  .th-ordinabile { cursor: pointer; user-select: none; }
+  .th-ordinabile:hover { color: var(--blu); }
   .tabella-scorrevole { position: relative; }
   .scroll-alto { overflow-x: auto; overflow-y: hidden; height: 14px; margin-top: 14px; }
   .scroll-alto-spaziatore { height: 1px; }
@@ -161,7 +163,7 @@
 </style>
 </head>
 <body>
-<div class="versione">Designed by Gianluca Cioè · rev. 50</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 52</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -178,8 +180,10 @@
   <div id="pannello" class="nascosto">
     <div class="tabs">
       <button id="tabIscrizioniBtn" class="attivo" onclick="mostraTab('iscrizioni')">Anagrafica</button>
+      <button id="tabPraticheBtn" onclick="mostraTab('pratiche')">Pratiche</button>
       <button id="tabBustePagaBtn" onclick="mostraTab('bustepaga')">Buste paga C/B</button>
       <button id="tabEmailBtn" onclick="mostraTab('email')">Invio mail colf/badanti</button>
+      <button id="tabEmailMassivoBtn" onclick="mostraTab('emailmassivo')">Invio mail massivo</button>
       <button id="tabPrivacyBtn" onclick="mostraTab('privacy')">Privacy</button>
       <button id="tabCampiBtn" onclick="mostraTab('campi')">Gestione campi</button>
     </div>
@@ -243,6 +247,31 @@
       <div id="tabellaLogEmail"></div>
     </div>
 
+    <div id="tabEmailMassivo" class="nascosto">
+      <h2>Invio mail massivo</h2>
+      <p class="nota">Tutta l'anagrafica, non solo colf e badanti. Le righe in rosa hanno la tessera scaduta. Usa segnaposto come <code>{{Nome}}</code> o <code>{{Cognome}}</code> per personalizzare ogni email.</p>
+      <button class="secondario" onclick="caricaSchedaEmailMassivo()">Aggiorna elenco</button>
+      <br><br>
+      <label>Oggetto<br>
+        <input type="text" id="oggettoEmailMassivo" style="width:100%;box-sizing:border-box">
+      </label>
+      <br><br>
+      <label>Testo del messaggio<br>
+        <textarea id="corpoEmailMassivo" rows="8" style="width:100%;box-sizing:border-box"></textarea>
+      </label>
+      <br><br>
+      <button class="secondario" onclick="salvaModelloEmailMassivoTesto()">Salva oggetto e testo per la prossima volta</button>
+      <span id="esitoModelloEmailMassivo"></span>
+      <br><br>
+      <label>Cerca, per cliente o email<br>
+        <input type="text" id="cercaEmailMassivo" placeholder="Scrivi per filtrare..." oninput="disegnaDestinatariMassivo()" style="max-width:480px">
+      </label>
+      <div id="elencoDestinatariMassivo"></div>
+      <br>
+      <button onclick="inviaEmailMassivoATutti()">Invia ai destinatari selezionati</button>
+      <div id="esitoInvioMassivo" style="margin-top:10px;font-size:13px"></div>
+    </div>
+
     <div id="tabPrivacy" class="nascosto">
       <h2>Informativa privacy</h2>
       <p class="nota">Separa i paragrafi con una riga vuota.</p>
@@ -250,6 +279,45 @@
       <br><br>
       <button onclick="salvaPrivacy()">Salva informativa</button>
       <span id="esitoPrivacy"></span>
+    </div>
+
+    <div id="tabPratiche" class="nascosto">
+      <h2>Pratiche</h2>
+      <p class="nota">Un cliente puo avere piu pratiche nel tempo, anche a distanza di anni. Fase e Pagamento sono indipendenti tra loro.</p>
+
+      <div class="riquadro-nuova-bustapaga">
+        <h3>Aggiungi una pratica</h3>
+        <div class="riga-nuova-bustapaga">
+          <label>Cliente
+            <select id="clienteNuovaPratica" style="min-width:220px"></select>
+          </label>
+          <label>Tipo di pratica
+            <select id="tipoNuovaPratica" style="min-width:160px"></select>
+          </label>
+          <label>Data apertura
+            <input type="date" id="dataAperturaNuovaPratica">
+          </label>
+          <button onclick="aggiungiPratica()">Aggiungi pratica</button>
+        </div>
+        <span id="esitoNuovaPratica"></span>
+      </div>
+
+      <div class="riquadro-nuova-bustapaga">
+        <h3>Tipi di pratica selezionabili</h3>
+        <p class="sottonota">Un elenco per riga, es. 730, ISEE, RED, Successione. Usato nel menu qui sopra.</p>
+        <textarea id="elencoTipiPratica" rows="5" style="width:100%;box-sizing:border-box"></textarea>
+        <br><br>
+        <button class="secondario" onclick="salvaTipiPratica()">Salva elenco</button>
+        <span id="esitoTipiPratica"></span>
+      </div>
+
+      <br>
+      <button class="secondario" onclick="caricaPratiche()">Aggiorna elenco</button>
+      <button onclick="scaricaExcelPratiche()">Scarica Excel</button>
+      <label style="margin-top:14px">Cerca, per cliente, tipo, fase o qualunque altro dato<br>
+        <input type="text" id="cercaPratiche" placeholder="Scrivi per filtrare..." oninput="disegnaTabellaPratiche()" style="max-width:480px">
+      </label>
+      <div id="tabellaPratiche" style="margin-top:14px"></div>
     </div>
 
     <div id="tabBustePaga" class="nascosto">
@@ -305,6 +373,53 @@
   let ultimeIscrizioni = { intestazioni: [], righe: [] };
   let testoInformativaCorrente = '';
   let importoTesseraCorrente = '30';
+  let ultimeBustePaga = { intestazioni: [], righe: [] };
+  let ultimePratiche = { intestazioni: [], righe: [] };
+  let tipiPraticaCorrenti = [];
+
+  // --- Ordinamento riutilizzabile, per intestazioni di colonna cliccabili ---
+  // Uno stato per ogni tabella, ricorda quale colonna e in che verso.
+  // Click di nuovo sulla stessa colonna inverte il verso.
+  const statoOrdinamento = {};
+
+  function ordinaTabella(tabella, colonna) {
+    const stato = statoOrdinamento[tabella] || { colonna: null, direzione: 1 };
+    if (stato.colonna === colonna) {
+      stato.direzione = -stato.direzione;
+    } else {
+      stato.colonna = colonna;
+      stato.direzione = 1;
+    }
+    statoOrdinamento[tabella] = stato;
+    if (tabella === 'iscrizioni') disegnaTabellaIscrizioni();
+    else if (tabella === 'bustePaga') disegnaTabellaBustePaga();
+    else if (tabella === 'pratiche') disegnaTabellaPratiche();
+    else if (tabella === 'mailMassivo') disegnaDestinatariMassivo();
+  }
+
+  // Applica l'ordinamento attivo a un elenco di righe nel formato
+  // {r, indiceOriginale}, confrontando per numero quando possibile,
+  // altrimenti come testo. Se non e stata scelta nessuna colonna,
+  // restituisce le righe invariate, cosi resta valido l'ordinamento di
+  // default di ciascuna tabella.
+  function applicaOrdinamento(righe, tabella) {
+    const stato = statoOrdinamento[tabella];
+    if (!stato || stato.colonna == null) return righe;
+    righe.sort((a, b) => {
+      const va = a.r[stato.colonna], vb = b.r[stato.colonna];
+      const na = parseFloat(va), nb = parseFloat(vb);
+      const numerici = va !== '' && vb !== '' && va != null && vb != null && !isNaN(na) && !isNaN(nb);
+      const cmp = numerici ? (na - nb) : String(va ?? '').toLowerCase().localeCompare(String(vb ?? '').toLowerCase(), 'it');
+      return cmp * stato.direzione;
+    });
+    return righe;
+  }
+
+  function intestazioneOrdinabile(testo, tabella, colonna) {
+    const stato = statoOrdinamento[tabella];
+    const freccia = stato && stato.colonna === colonna ? (stato.direzione === 1 ? ' \u25B2' : ' \u25BC') : '';
+    return `<th class="th-ordinabile" onclick="ordinaTabella('${tabella}', ${colonna})">${testo}${freccia}</th>`;
+  }
 
   async function caricaPrivacyInterna() {
     const res = await fetch(BACKEND_URL + '?action=getPrivacy');
@@ -356,17 +471,23 @@
     document.getElementById('tabCampi').classList.toggle('nascosto', nome !== 'campi');
     document.getElementById('tabIscrizioni').classList.toggle('nascosto', nome !== 'iscrizioni');
     document.getElementById('tabEmail').classList.toggle('nascosto', nome !== 'email');
+    document.getElementById('tabEmailMassivo').classList.toggle('nascosto', nome !== 'emailmassivo');
     document.getElementById('tabPrivacy').classList.toggle('nascosto', nome !== 'privacy');
     document.getElementById('tabBustePaga').classList.toggle('nascosto', nome !== 'bustepaga');
+    document.getElementById('tabPratiche').classList.toggle('nascosto', nome !== 'pratiche');
     document.getElementById('tabCampiBtn').classList.toggle('attivo', nome === 'campi');
     document.getElementById('tabIscrizioniBtn').classList.toggle('attivo', nome === 'iscrizioni');
     document.getElementById('tabEmailBtn').classList.toggle('attivo', nome === 'email');
+    document.getElementById('tabEmailMassivoBtn').classList.toggle('attivo', nome === 'emailmassivo');
     document.getElementById('tabPrivacyBtn').classList.toggle('attivo', nome === 'privacy');
     document.getElementById('tabBustePagaBtn').classList.toggle('attivo', nome === 'bustepaga');
+    document.getElementById('tabPraticheBtn').classList.toggle('attivo', nome === 'pratiche');
     if (nome === 'iscrizioni') caricaIscrizioni();
     if (nome === 'email') caricaSchedaEmail();
+    if (nome === 'emailmassivo') caricaSchedaEmailMassivo();
     if (nome === 'privacy') caricaPrivacyAdmin();
     if (nome === 'bustepaga') caricaSchedaBustePaga();
+    if (nome === 'pratiche') caricaSchedaPratiche();
   }
 
   async function caricaCampi() {
@@ -581,8 +702,9 @@
       const chiave = (x) => ((idxCognome >= 0 ? x.r[idxCognome] : '') + ' ' + (idxNome >= 0 ? x.r[idxNome] : '')).toLowerCase();
       return chiave(a).localeCompare(chiave(b), 'it');
     });
+    righe = applicaOrdinamento(righe, 'iscrizioni');
 
-    let html = '<table><tr>' + colonneVisibili.map(i => `<th>${intestazioni[i]}</th>`).join('') +
+    let html = '<table><tr>' + colonneVisibili.map(i => intestazioneOrdinabile(intestazioni[i], 'iscrizioni', i)).join('') +
       (idxTessera >= 0 ? '<th>Scadenza tessera</th>' : '') + '<th class="col-azioni">Azioni</th></tr>';
     righe.forEach(({ r, indiceOriginale }) => {
       const scadenza = idxTessera >= 0 ? calcolaScadenzaTessera(r[idxTessera]) : null;
@@ -1106,6 +1228,139 @@
     }
   }
 
+  // --- Invio mail massivo, tutta l'anagrafica ---
+
+  async function caricaSchedaEmailMassivo() {
+    await caricaIscrizioni();
+    await caricaModelloEmailMassivo();
+    disegnaDestinatariMassivo();
+  }
+
+  async function caricaModelloEmailMassivo() {
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'getModelloEmail', password, tipo: 'massivo' })
+    });
+    const data = await res.json();
+    document.getElementById('oggettoEmailMassivo').value = data.oggetto || '';
+    document.getElementById('corpoEmailMassivo').value = data.corpo || '';
+  }
+
+  async function salvaModelloEmailMassivoTesto() {
+    const oggetto = document.getElementById('oggettoEmailMassivo').value;
+    const corpo = document.getElementById('corpoEmailMassivo').value;
+    const esito = document.getElementById('esitoModelloEmailMassivo');
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'saveModelloEmail', password, oggetto, corpo, tipo: 'massivo' })
+    });
+    const data = await res.json();
+    esito.textContent = data.ok ? ' Salvato.' : ' Errore, riprova.';
+  }
+
+  function disegnaDestinatariMassivo() {
+    const div = document.getElementById('elencoDestinatariMassivo');
+    if (!ultimeIscrizioni.righe || ultimeIscrizioni.righe.length === 0) {
+      div.innerHTML = '<p>Nessun cliente disponibile.</p>';
+      return;
+    }
+    const idxEmail = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().includes('mail'));
+    const idxCognome = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'cognome');
+    const idxNome = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'nome');
+    const idxTessera = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().includes('tessera'));
+
+    let righe = ultimeIscrizioni.righe.map((r, indiceOriginale) => ({ r, indiceOriginale }));
+
+    const testoCercato = (document.getElementById('cercaEmailMassivo').value || '').trim().toLowerCase();
+    const paroleCercate = testoCercato.split(/\s+/).filter(Boolean);
+    if (paroleCercate.length) {
+      righe = righe.filter(({ r }) => {
+        const testo = [idxCognome, idxNome, idxEmail].filter(i => i >= 0).map(i => String(r[i] || '').toLowerCase()).join(' ');
+        return paroleCercate.every(p => testo.includes(p));
+      });
+    }
+
+    righe.sort((a, b) => {
+      const chiave = (x) => ((idxCognome >= 0 ? x.r[idxCognome] : '') + ' ' + (idxNome >= 0 ? x.r[idxNome] : '')).toLowerCase();
+      return chiave(a).localeCompare(chiave(b), 'it');
+    });
+    righe = applicaOrdinamento(righe, 'mailMassivo');
+
+    if (righe.length === 0) {
+      div.innerHTML = '<p>Nessun risultato.</p>';
+      return;
+    }
+
+    let html = '<table><tr><th><input type="checkbox" checked onchange="selezionaTuttiMassivo(this)"></th>' +
+      intestazioneOrdinabile('Cliente', 'mailMassivo', idxCognome) +
+      intestazioneOrdinabile('Email', 'mailMassivo', idxEmail) +
+      '<th>Tessera</th></tr>';
+    righe.forEach(({ r, indiceOriginale }) => {
+      const cognome = idxCognome >= 0 ? r[idxCognome] : '';
+      const nome = idxNome >= 0 ? r[idxNome] : '';
+      const nominativo = [cognome, nome].filter(Boolean).join(' ') || '(senza nome)';
+      const scadenza = idxTessera >= 0 ? calcolaScadenzaTessera(r[idxTessera]) : null;
+      const scaduta = scadenza && scadenza.scaduta;
+      const emailMostrata = (r[idxEmail] || '(indirizzo mancante)').toString().toLowerCase();
+      html += `<tr class="${scaduta ? 'riga-scaduta' : ''}">
+        <td><input type="checkbox" class="dest-massivo" checked data-riga="${indiceOriginale}"></td>
+        <td>${nominativo.toUpperCase()}</td>
+        <td>${emailMostrata}</td>
+        <td>${scaduta ? 'Scaduta il ' + scadenza.testo : (scadenza ? 'Valida' : '')}</td>
+      </tr>`;
+    });
+    html += '</table>';
+    div.innerHTML = '<div class="scroll-tabella">' + html + '</div>';
+  }
+
+  function selezionaTuttiMassivo(cb) {
+    document.querySelectorAll('.dest-massivo').forEach(el => el.checked = cb.checked);
+  }
+
+  async function inviaEmailMassivoATutti() {
+    const oggetto = document.getElementById('oggettoEmailMassivo').value;
+    const corpo = document.getElementById('corpoEmailMassivo').value;
+    const idxEmail = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().includes('mail'));
+    if (!oggetto || !corpo) {
+      alert('Inserisci oggetto e testo del messaggio.');
+      return;
+    }
+    const selezionati = Array.from(document.querySelectorAll('.dest-massivo:checked')).map(el => Number(el.dataset.riga));
+    if (selezionati.length === 0) {
+      alert('Seleziona almeno un destinatario.');
+      return;
+    }
+    const esito = document.getElementById('esitoInvioMassivo');
+    esito.innerHTML = '';
+    for (const i of selezionati) {
+      const riga = ultimeIscrizioni.righe[i];
+      const destinatario = riga[idxEmail];
+      const rigaEsito = document.createElement('div');
+      rigaEsito.textContent = destinatario + ': invio in corso...';
+      esito.appendChild(rigaEsito);
+      if (!destinatario) {
+        rigaEsito.textContent = '(riga senza indirizzo email) saltata';
+        continue;
+      }
+      try {
+        const res = await fetch(BACKEND_URL, {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'inviaMail',
+            password,
+            destinatario,
+            oggetto: sostituisciSegnaposto(oggetto, riga),
+            corpo: sostituisciSegnaposto(corpo, riga)
+          })
+        });
+        const data = await res.json();
+        rigaEsito.textContent = destinatario + ': ' + (data.ok ? 'inviata' : 'errore, ' + (data.errore || ''));
+      } catch (err) {
+        rigaEsito.textContent = destinatario + ': errore di connessione';
+      }
+    }
+  }
+
   async function caricaLogEmail() {
     const res = await fetch(BACKEND_URL, {
       method: 'POST',
@@ -1151,7 +1406,6 @@
 
   const MESI_BUSTA_PAGA = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
   const MESI_BREVI = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
-  let ultimeBustePaga = { intestazioni: [], righe: [] };
 
   // Vero se il "Pagato fino a" indicato e gia passato rispetto al mese
   // corrente. Se manca il mese o l'anno, non si può dire se sia scaduto,
@@ -1268,10 +1522,16 @@
       const chiave = (x) => (x.r[iCognome] + ' ' + x.r[iNome]).toLowerCase();
       return chiave(a).localeCompare(chiave(b), 'it') || (b.r[iAnno] - a.r[iAnno]);
     });
+    righe = applicaOrdinamento(righe, 'bustePaga');
 
-    let html = '<table><tr><th>Cliente</th><th>Dipendente</th><th>Anno</th>' +
-      MESI_BREVI.map(m => `<th>${m}</th>`).join('') +
-      '<th>Pagato fino a</th><th>Nota pagamento</th><th class="col-azioni">Azioni</th></tr>';
+    let html = '<table><tr>' +
+      intestazioneOrdinabile('Cliente', 'bustePaga', iCognome) +
+      intestazioneOrdinabile('Dipendente', 'bustePaga', iDipendente) +
+      intestazioneOrdinabile('Anno', 'bustePaga', iAnno) +
+      MESI_BUSTA_PAGA.map((m, i) => intestazioneOrdinabile(MESI_BREVI[i], 'bustePaga', idx(m))).join('') +
+      intestazioneOrdinabile('Pagato fino a', 'bustePaga', iPagatoAnno) +
+      intestazioneOrdinabile('Nota pagamento', 'bustePaga', iNota) +
+      '<th class="col-azioni">Azioni</th></tr>';
 
     if (righe.length === 0) {
       div.innerHTML = '<p class="nota">Nessun risultato per questa ricerca.</p>';
@@ -1334,6 +1594,212 @@
     const data = await res.json();
     if (data.ok) await caricaBustePaga();
     else alert('Errore, riprova.');
+  }
+
+  // --- Pratiche ---
+
+  async function caricaSchedaPratiche() {
+    await caricaIscrizioni();
+    popolaClientiPratica();
+    await caricaTipiPratica();
+    if (!document.getElementById('dataAperturaNuovaPratica').value) {
+      document.getElementById('dataAperturaNuovaPratica').value = new Date().toISOString().slice(0, 10);
+    }
+    await caricaPratiche();
+  }
+
+  // Il menu Cliente per una pratica nuova mostra tutta l'anagrafica, non
+  // solo i clienti Colf e badanti come nelle buste paga.
+  function popolaClientiPratica() {
+    const sel = document.getElementById('clienteNuovaPratica');
+    const idxCognome = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'cognome');
+    const idxNome = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'nome');
+    const idxCF = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'codice fiscale');
+    if (!ultimeIscrizioni.righe || ultimeIscrizioni.righe.length === 0) {
+      sel.innerHTML = '<option value="">Nessun cliente in anagrafica</option>';
+      return;
+    }
+    const clienti = ultimeIscrizioni.righe
+      .map(r => ({
+        cognome: idxCognome >= 0 ? r[idxCognome] : '',
+        nome: idxNome >= 0 ? r[idxNome] : '',
+        cf: idxCF >= 0 ? r[idxCF] : ''
+      }))
+      .sort((a, b) => (a.cognome + a.nome).localeCompare(b.cognome + b.nome, 'it'));
+    sel.innerHTML = clienti.map(c =>
+      `<option value="${c.cognome}|||${c.nome}|||${c.cf}">${c.cognome} ${c.nome}</option>`
+    ).join('');
+  }
+
+  async function caricaTipiPratica() {
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'getTipiPratica', password })
+    });
+    const data = await res.json();
+    tipiPraticaCorrenti = data.tipi || [];
+    document.getElementById('elencoTipiPratica').value = tipiPraticaCorrenti.join('\n');
+    document.getElementById('tipoNuovaPratica').innerHTML =
+      tipiPraticaCorrenti.map(t => `<option value="${t}">${t}</option>`).join('');
+  }
+
+  async function salvaTipiPratica() {
+    const testo = document.getElementById('elencoTipiPratica').value;
+    const tipi = testo.split('\n').map(t => t.trim()).filter(Boolean);
+    const esito = document.getElementById('esitoTipiPratica');
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'saveTipiPratica', password, tipi })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      tipiPraticaCorrenti = tipi;
+      document.getElementById('tipoNuovaPratica').innerHTML = tipi.map(t => `<option value="${t}">${t}</option>`).join('');
+      esito.textContent = ' Salvato.';
+    } else {
+      esito.textContent = ' Errore, riprova.';
+    }
+  }
+
+  async function aggiungiPratica() {
+    const valore = document.getElementById('clienteNuovaPratica').value;
+    const tipo = document.getElementById('tipoNuovaPratica').value;
+    const dataApertura = document.getElementById('dataAperturaNuovaPratica').value;
+    const esito = document.getElementById('esitoNuovaPratica');
+    if (!valore || !tipo || !dataApertura) {
+      esito.textContent = ' Scegli cliente, tipo e data.';
+      return;
+    }
+    const [cognome, nome, codiceFiscale] = valore.split('|||');
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'aggiungiPratica', password, cognome, nome, codiceFiscale, tipo, dataApertura })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      esito.textContent = ' Aggiunta.';
+      await caricaPratiche();
+    } else {
+      esito.textContent = ' Errore, riprova.';
+    }
+  }
+
+  async function caricaPratiche() {
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'getPratiche', password })
+    });
+    ultimePratiche = await res.json();
+    disegnaTabellaPratiche();
+  }
+
+  function disegnaTabellaPratiche() {
+    const div = document.getElementById('tabellaPratiche');
+    if (!ultimePratiche.righe || ultimePratiche.righe.length === 0) {
+      div.innerHTML = '<p>Nessuna pratica registrata ancora.</p>';
+      return;
+    }
+    const intestazioni = ultimePratiche.intestazioni;
+    const idx = (nome) => intestazioni.indexOf(nome);
+    const iCognome = idx('Cognome'), iNome = idx('Nome'), iTipo = idx('Tipo'), iDataApertura = idx('DataApertura'),
+      iFase = idx('Fase'), iPagamento = idx('Pagamento'), iDataChiusura = idx('DataChiusura'), iNota = idx('Nota');
+
+    let righe = ultimePratiche.righe.map((r, indiceOriginale) => ({ r, indiceOriginale }));
+
+    const testoCercato = (document.getElementById('cercaPratiche').value || '').trim().toLowerCase();
+    const paroleCercate = testoCercato.split(/\s+/).filter(Boolean);
+    if (paroleCercate.length) {
+      righe = righe.filter(({ r }) => {
+        const testo = r.map(v => String(v || '').toLowerCase()).join(' ');
+        return paroleCercate.every(p => testo.includes(p));
+      });
+    }
+
+    righe.sort((a, b) => {
+      const chiave = (x) => (x.r[iCognome] + ' ' + x.r[iNome]).toLowerCase();
+      return chiave(a).localeCompare(chiave(b), 'it') || String(b.r[iDataApertura] || '').localeCompare(String(a.r[iDataApertura] || ''));
+    });
+    righe = applicaOrdinamento(righe, 'pratiche');
+
+    let html = '<table><tr>' +
+      intestazioneOrdinabile('Cliente', 'pratiche', iCognome) +
+      intestazioneOrdinabile('Tipo', 'pratiche', iTipo) +
+      intestazioneOrdinabile('Apertura', 'pratiche', iDataApertura) +
+      intestazioneOrdinabile('Fase', 'pratiche', iFase) +
+      intestazioneOrdinabile('Pagamento', 'pratiche', iPagamento) +
+      intestazioneOrdinabile('Chiusura', 'pratiche', iDataChiusura) +
+      intestazioneOrdinabile('Nota', 'pratiche', iNota) +
+      '<th class="col-azioni">Azioni</th></tr>';
+
+    righe.forEach(({ r, indiceOriginale }) => {
+      html += `<tr>
+        <td>${r[iCognome] || ''} ${r[iNome] || ''}</td>
+        <td>${r[iTipo] || ''}</td>
+        <td>${formattaData(r[iDataApertura])}</td>
+        <td>
+          <select onchange="aggiornaCellaPratica(${indiceOriginale}, 'Fase', this.value)">
+            <option value="Attiva" ${r[iFase] === 'Attiva' ? 'selected' : ''}>Attiva</option>
+            <option value="Conclusa" ${r[iFase] === 'Conclusa' ? 'selected' : ''}>Conclusa</option>
+          </select>
+        </td>
+        <td>
+          <select onchange="aggiornaCellaPratica(${indiceOriginale}, 'Pagamento', this.value)">
+            <option value="Pagata" ${r[iPagamento] === 'Pagata' ? 'selected' : ''}>Pagata</option>
+            <option value="Gratuita con tessera" ${r[iPagamento] === 'Gratuita con tessera' ? 'selected' : ''}>Gratuita con tessera</option>
+          </select>
+        </td>
+        <td><input type="date" value="${r[iDataChiusura] ? String(r[iDataChiusura]).slice(0, 10) : ''}" onchange="aggiornaCellaPratica(${indiceOriginale}, 'DataChiusura', this.value)" style="width:140px"></td>
+        <td><input type="text" value="${(r[iNota] || '').toString().replace(/"/g, '&quot;')}" onchange="aggiornaCellaPratica(${indiceOriginale}, 'Nota', this.value)" style="width:160px"></td>
+        <td class="col-azioni"><button class="pericolo" onclick="eliminaPratica(${indiceOriginale})">Elimina</button></td>
+      </tr>`;
+    });
+    html += '</table>';
+    div.innerHTML = avvolgiTabellaConScrollDoppio(html, 'pratiche');
+    collegaScrollDoppio('pratiche');
+  }
+
+  // Se la Fase passa a Conclusa e manca ancora la Data di chiusura, la
+  // riempie da sola con la data di oggi, cosi non tocca ricordarsene.
+  async function aggiornaCellaPratica(indiceRiga, colonna, valore) {
+    await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'aggiornaCellaPratica', password, indiceRiga, colonna, valore })
+    });
+    if (colonna === 'Fase' && valore === 'Conclusa') {
+      const riga = ultimePratiche.righe[indiceRiga];
+      const iDataChiusura = ultimePratiche.intestazioni.indexOf('DataChiusura');
+      if (iDataChiusura >= 0 && !riga[iDataChiusura]) {
+        const oggi = new Date().toISOString().slice(0, 10);
+        await fetch(BACKEND_URL, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'aggiornaCellaPratica', password, indiceRiga, colonna: 'DataChiusura', valore: oggi })
+        });
+        await caricaPratiche();
+      }
+    }
+  }
+
+  async function eliminaPratica(indiceRiga) {
+    if (!confirm('Eliminare definitivamente questa pratica?')) return;
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'eliminaPratica', password, indiceRiga })
+    });
+    const data = await res.json();
+    if (data.ok) await caricaPratiche();
+    else alert('Errore, riprova.');
+  }
+
+  function scaricaExcelPratiche() {
+    if (!ultimePratiche.intestazioni || ultimePratiche.intestazioni.length === 0) {
+      alert('Nessun dato da esportare, aggiorna prima elenco.');
+      return;
+    }
+    const dati = [ultimePratiche.intestazioni, ...ultimePratiche.righe];
+    const foglio = XLSX.utils.aoa_to_sheet(dati);
+    const cartella = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(cartella, foglio, 'Pratiche');
+    XLSX.writeFile(cartella, 'pratiche.xlsx');
   }
 </script>
 </body>
