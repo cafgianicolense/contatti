@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 56 -->
+<!-- rev. 57 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -171,7 +171,7 @@
 </style>
 </head>
 <body>
-<div class="versione">Designed by Gianluca Cioè · rev. 56</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 57</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -685,8 +685,8 @@
       return;
     }
     const intestazioni = ultimeIscrizioni.intestazioni;
-    const idxCognome = intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'cognome');
-    const idxNome = intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'nome');
+    const idxCognome = intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === 'cognome');
+    const idxNome = intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === 'nome');
     // Colonne sempre nascoste dalla tabella, perche' poco utili da vedere
     // a colpo d'occhio. Restano comunque cercabili col campo Cerca, e
     // modificabili da Modifica anagrafica.
@@ -694,15 +694,18 @@
       'timestamp', 'sesso', 'comune di residenza', 'provincia di residenza',
       'indirizzo', 'cap', 'oggetto della richiesta', 'osservazioni', 'consenso privacy'
     ];
-    const colonneRicercabili = intestazioni.map((h, i) => i).filter(i => (intestazioni[i] || '').toLowerCase().trim() !== 'timestamp');
+    // Un'etichetta scritta tutta di numeri, tipo "730", Google Sheets la
+    // restituisce come numero, non testo: si forza sempre a stringa
+    // prima di chiamare metodi da testo, altrimenti va in errore.
+    const colonneRicercabili = intestazioni.map((h, i) => i).filter(i => String(intestazioni[i] || '').toLowerCase().trim() !== 'timestamp');
     const colonneVisibili = intestazioni.map((h, i) => i)
-      .filter(i => !colonneNascoste.includes((intestazioni[i] || '').toLowerCase().trim()));
+      .filter(i => !colonneNascoste.includes(String(intestazioni[i] || '').toLowerCase().trim()));
 
     // Solo per la visualizzazione: date in formato italiano, tutto
     // maiuscolo, tranne le colonne email che restano minuscole. Non
     // tocca i dati salvati nel foglio.
     const formattaCella = (valore, idx) => {
-      const intestazione = (intestazioni[idx] || '').toLowerCase();
+      const intestazione = String(intestazioni[idx] || '').toLowerCase();
       if (intestazione.includes('data')) return formattaData(valore);
       if (valore === '' || valore == null) return valore;
       return intestazione.includes('mail') ? String(valore).toLowerCase() : String(valore).toUpperCase();
@@ -712,7 +715,7 @@
     // colonna calcolata con la scadenza, data tessera piu 365 giorni,
     // senza che sia mai salvata da nessuna parte. Se e gia passata, la
     // riga viene evidenziata come le buste paga scadute.
-    const idxTessera = intestazioni.findIndex(h => h && h.toLowerCase().includes('tessera'));
+    const idxTessera = intestazioni.findIndex(h => h && String(h).toLowerCase().includes('tessera'));
 
     let righe = ultimeIscrizioni.righe.map((r, indiceOriginale) => ({ r, indiceOriginale }));
 
@@ -778,12 +781,17 @@
     // attivi sul modulo pubblico, come un campo pensato per restare solo
     // interno). Per questi ultimi non esiste ancora un indice riga, il
     // valore parte vuoto e la colonna si crea da sola al primo salvataggio.
-    const nomiEsistenti = ultimeIscrizioni.intestazioni.filter(h => h && h.toLowerCase().trim() !== 'timestamp');
+    const nomiEsistenti = ultimeIscrizioni.intestazioni.filter(h => h && String(h).toLowerCase().trim() !== 'timestamp');
     const nomiExtra = (campi || []).map(c => c.etichetta).filter(nome => nome && !nomiEsistenti.includes(nome));
     const tuttiNomi = [...nomiEsistenti, ...nomiExtra];
 
-    tuttiNomi.forEach(intestazione => {
-      const idx = ultimeIscrizioni.intestazioni.indexOf(intestazione);
+    tuttiNomi.forEach(intestazioneGrezza => {
+      // Un'etichetta scritta tutta di numeri, tipo "730", Google Sheets
+      // la restituisce come numero e non come testo: qui la si forza
+      // sempre a stringa prima di qualunque operazione su testo, cosi
+      // non manda piu in errore silenzioso l'apertura della finestra.
+      const intestazione = String(intestazioneGrezza);
+      const idx = ultimeIscrizioni.intestazioni.indexOf(intestazioneGrezza);
       const div = document.createElement('div');
       div.className = 'campo-modale';
       const valore = idx >= 0 && riga[idx] != null ? String(riga[idx]) : '';
@@ -860,8 +868,8 @@
   function apriElimina(indiceRiga) {
     indiceInModale = indiceRiga;
     const riga = ultimeIscrizioni.righe[indiceRiga];
-    const idxCognome = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'cognome');
-    const idxNome = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'nome');
+    const idxCognome = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === 'cognome');
+    const idxNome = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === 'nome');
     const nominativo = [idxCognome >= 0 ? riga[idxCognome] : '', idxNome >= 0 ? riga[idxNome] : '']
       .filter(Boolean).join(' ') || 'questa persona';
     document.getElementById('titoloModale').textContent = 'Elimina iscrizione';
@@ -926,12 +934,12 @@
   function trovaValore(riga, parole) {
     // prima cerca una corrispondenza esatta con l'intestazione della colonna
     for (const parola of parole) {
-      const idxEsatto = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === parola);
+      const idxEsatto = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === parola);
       if (idxEsatto >= 0 && riga[idxEsatto]) return riga[idxEsatto];
     }
     // altrimenti una corrispondenza parziale, meno precisa ma piu tollerante
     for (const parola of parole) {
-      const idx = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().includes(parola));
+      const idx = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().includes(parola));
       if (idx >= 0 && riga[idx]) return riga[idx];
     }
     return '';
@@ -1161,14 +1169,14 @@
       div.innerHTML = '<p>Nessun iscritto disponibile.</p>';
       return;
     }
-    const idxColf = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().includes('colf'));
+    const idxColf = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().includes('colf'));
     if (idxColf === -1) {
       div.innerHTML = '<p class="nota">Manca il campo "Colf e badanti" tra i campi del form. Aggiungilo dalla scheda Gestione campi per poter usare questo invio.</p>';
       return;
     }
-    const idxEmail = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().includes('mail'));
-    const idxCognome = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'cognome');
-    const idxNome = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'nome');
+    const idxEmail = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().includes('mail'));
+    const idxCognome = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === 'cognome');
+    const idxNome = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === 'nome');
     const destinatari = ultimeIscrizioni.righe
       .map((r, i) => ({ r, i }))
       .filter(({ r }) => (r[idxColf] || '').toString().trim().toLowerCase() === 'si')
@@ -1214,7 +1222,7 @@
   async function inviaEmailATutti() {
     const oggetto = document.getElementById('oggettoEmail').value;
     const corpo = document.getElementById('corpoEmail').value;
-    const idxEmail = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().includes('mail'));
+    const idxEmail = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().includes('mail'));
     if (!oggetto || !corpo) {
       alert('Inserisci oggetto e testo del messaggio.');
       return;
@@ -1291,10 +1299,10 @@
       div.innerHTML = '<p>Nessun cliente disponibile.</p>';
       return;
     }
-    const idxEmail = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().includes('mail'));
-    const idxCognome = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'cognome');
-    const idxNome = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'nome');
-    const idxTessera = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().includes('tessera'));
+    const idxEmail = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().includes('mail'));
+    const idxCognome = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === 'cognome');
+    const idxNome = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === 'nome');
+    const idxTessera = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().includes('tessera'));
 
     let righe = ultimeIscrizioni.righe.map((r, indiceOriginale) => ({ r, indiceOriginale }));
 
@@ -1347,7 +1355,7 @@
   async function inviaEmailMassivoATutti() {
     const oggetto = document.getElementById('oggettoEmailMassivo').value;
     const corpo = document.getElementById('corpoEmailMassivo').value;
-    const idxEmail = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().includes('mail'));
+    const idxEmail = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().includes('mail'));
     if (!oggetto || !corpo) {
       alert('Inserisci oggetto e testo del messaggio.');
       return;
@@ -1399,7 +1407,7 @@
       div.innerHTML = '<p>Nessun invio registrato ancora.</p>';
       return;
     }
-    const idxTimestamp = dati.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'timestamp');
+    const idxTimestamp = dati.intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === 'timestamp');
     const ordine = dati.intestazioni.map((h, i) => i).filter(i => i !== idxTimestamp);
     if (idxTimestamp >= 0) ordine.push(idxTimestamp);
     let html = '<table><tr>' + ordine.map(i => `<th>${dati.intestazioni[i]}</th>`).join('') + '</tr>';
@@ -1462,10 +1470,10 @@
   // anche se nel frattempo e passato a No.
   function popolaClientiNuovaBustaPaga() {
     const sel = document.getElementById('clienteNuovaBustaPaga');
-    const idxColf = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().includes('colf'));
-    const idxCognome = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'cognome');
-    const idxNome = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'nome');
-    const idxCF = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'codice fiscale');
+    const idxColf = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().includes('colf'));
+    const idxCognome = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === 'cognome');
+    const idxNome = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === 'nome');
+    const idxCF = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === 'codice fiscale');
     sel.innerHTML = '';
     if (idxColf === -1) {
       sel.innerHTML = '<option value="">Manca il campo Colf e badanti</option>';
@@ -1639,9 +1647,9 @@
   // solo i clienti Colf e badanti come nelle buste paga.
   function popolaClientiPratica() {
     const sel = document.getElementById('clienteNuovaPratica');
-    const idxCognome = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'cognome');
-    const idxNome = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'nome');
-    const idxCF = ultimeIscrizioni.intestazioni.findIndex(h => h && h.toLowerCase().trim() === 'codice fiscale');
+    const idxCognome = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === 'cognome');
+    const idxNome = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === 'nome');
+    const idxCF = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === 'codice fiscale');
     if (!ultimeIscrizioni.righe || ultimeIscrizioni.righe.length === 0) {
       sel.innerHTML = '<option value="">Nessun cliente in anagrafica</option>';
       return;
