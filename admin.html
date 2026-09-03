@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 59 -->
+<!-- rev. 60 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -171,7 +171,7 @@
 </style>
 </head>
 <body>
-<div class="versione">Designed by Gianluca Cioè · rev. 59</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 60</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -302,6 +302,8 @@
       <br>
       <button class="secondario" onclick="caricaPratiche()">Aggiorna elenco</button>
       <button onclick="scaricaExcelPratiche()">Scarica Excel</button>
+      <button class="secondario" onclick="migraColfBadantiAPratiche()" title="Da usare una sola volta">Crea pratiche per i vecchi clienti Colf e badanti</button>
+      <span id="esitoMigrazione"></span>
       <label style="margin-top:14px">Cerca, per cliente, tipo, fase o qualunque altro dato<br>
         <input type="text" id="cercaPratiche" placeholder="Scrivi per filtrare..." oninput="disegnaTabellaPratiche()" style="max-width:480px">
       </label>
@@ -1167,10 +1169,35 @@
     finestra.document.close();
   }
 
+  // Restituisce, come Map chiave->{cognome,nome,cf}, i clienti che hanno
+  // una pratica di questo tipo con Fase Attiva. Usata sia per l'invio
+  // email colf/badanti sia per il menu cliente delle buste paga, cosi il
+  // vecchio flag Colf e badanti in anagrafica non serve piu per questi
+  // due filtri, conta solo avere una pratica aperta.
+  function clientiConPraticaAttiva(tipoPratica) {
+    const trovati = new Map();
+    if (!ultimePratiche.intestazioni || ultimePratiche.intestazioni.length === 0) return trovati;
+    const iCognome = ultimePratiche.intestazioni.indexOf('Cognome');
+    const iNome = ultimePratiche.intestazioni.indexOf('Nome');
+    const iCF = ultimePratiche.intestazioni.indexOf('CodiceFiscale');
+    const iTipo = ultimePratiche.intestazioni.indexOf('Tipo');
+    const iFase = ultimePratiche.intestazioni.indexOf('Fase');
+    const tipoCercato = tipoPratica.toLowerCase().trim();
+    ultimePratiche.righe.forEach(r => {
+      const tipo = String(r[iTipo] || '').toLowerCase().trim();
+      const fase = String(r[iFase] || '').toLowerCase().trim();
+      if (tipo === tipoCercato && fase === 'attiva') {
+        const chiave = (String(r[iCognome] || '') + '|' + String(r[iNome] || '')).toLowerCase();
+        trovati.set(chiave, { cognome: r[iCognome], nome: r[iNome], cf: r[iCF] });
+      }
+    });
+    return trovati;
+  }
+
   async function caricaSchedaEmail() {
-    // Le tre chiamate sono indipendenti tra loro, farle partire insieme
-    // invece che una dopo l'altra dimezza abbondantemente l'attesa.
-    await Promise.all([caricaIscrizioni(), caricaBustePaga(), caricaModelloEmail()]);
+    // Le quattro chiamate sono indipendenti tra loro, farle partire
+    // insieme invece che una dopo l'altra dimezza abbondantemente l'attesa.
+    await Promise.all([caricaIscrizioni(), caricaBustePaga(), caricaModelloEmail(), caricaPratiche()]);
     disegnaDestinatari();
   }
 
@@ -1218,17 +1245,23 @@
       div.innerHTML = '<p>Nessun iscritto disponibile.</p>';
       return;
     }
-    const idxColf = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().includes('colf'));
-    if (idxColf === -1) {
-      div.innerHTML = '<p class="nota">Manca il campo "Colf e badanti" tra i campi del form. Aggiungilo dalla scheda Gestione campi per poter usare questo invio.</p>';
-      return;
-    }
     const idxEmail = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().includes('mail'));
     const idxCognome = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === 'cognome');
     const idxNome = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === 'nome');
+
+    // Non guarda piu il vecchio flag Colf e badanti in anagrafica, conta
+    // solo avere una pratica "Colf e badanti" con Fase Attiva.
+    const clientiAttivi = clientiConPraticaAttiva('Colf e badanti');
+    if (clientiAttivi.size === 0) {
+      div.innerHTML = '<p class="nota">Nessun cliente ha una pratica "Colf e badanti" attiva. Aprine una dalla scheda Pratiche.</p>';
+      return;
+    }
     const destinatari = ultimeIscrizioni.righe
       .map((r, i) => ({ r, i }))
-      .filter(({ r }) => (r[idxColf] || '').toString().trim().toLowerCase() === 'si')
+      .filter(({ r }) => {
+        const chiave = (String(idxCognome >= 0 ? r[idxCognome] : '') + '|' + String(idxNome >= 0 ? r[idxNome] : '')).toLowerCase();
+        return clientiAttivi.has(chiave);
+      })
       .sort((a, b) => {
         const chiave = (x) => ((idxCognome >= 0 ? x.r[idxCognome] : '') + ' ' + (idxNome >= 0 ? x.r[idxNome] : '')).toLowerCase();
         return chiave(a).localeCompare(chiave(b), 'it');
@@ -1505,39 +1538,25 @@
   }
 
   async function caricaSchedaBustePaga() {
-    await Promise.all([caricaIscrizioni(), caricaBustePaga()]);
+    await Promise.all([caricaIscrizioni(), caricaBustePaga(), caricaPratiche()]);
     popolaClientiNuovaBustaPaga();
     document.getElementById('annoNuovaBustaPaga').value = new Date().getFullYear();
   }
 
   // Nel menu "Cliente" per aggiungere un anno da tracciare propone solo
-  // chi ha oggi Colf e badanti su Si, cosi non si parte per sbaglio a
-  // tracciare qualcuno che non segue piu questo servizio. Chi era gia
-  // tracciato in passato resta comunque visibile nella tabella sotto,
-  // anche se nel frattempo e passato a No.
+  // chi ha oggi una pratica "Colf e badanti" attiva, cosi non si parte
+  // per sbaglio a tracciare qualcuno che non segue piu questo servizio.
+  // Chi era gia tracciato in passato resta comunque visibile nella
+  // tabella sotto, anche se nel frattempo la pratica e stata conclusa.
   function popolaClientiNuovaBustaPaga() {
     const sel = document.getElementById('clienteNuovaBustaPaga');
-    const idxColf = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().includes('colf'));
-    const idxCognome = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === 'cognome');
-    const idxNome = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === 'nome');
-    const idxCF = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === 'codice fiscale');
-    sel.innerHTML = '';
-    if (idxColf === -1) {
-      sel.innerHTML = '<option value="">Manca il campo Colf e badanti</option>';
+    const clientiAttivi = clientiConPraticaAttiva('Colf e badanti');
+    if (clientiAttivi.size === 0) {
+      sel.innerHTML = '<option value="">Nessun cliente con una pratica Colf e badanti attiva</option>';
       return;
     }
-    const clienti = ultimeIscrizioni.righe
-      .filter(r => (r[idxColf] || '').toString().trim().toLowerCase() === 'si')
-      .map(r => ({
-        cognome: idxCognome >= 0 ? r[idxCognome] : '',
-        nome: idxNome >= 0 ? r[idxNome] : '',
-        cf: idxCF >= 0 ? r[idxCF] : ''
-      }))
-      .sort((a, b) => (a.cognome + a.nome).localeCompare(b.cognome + b.nome, 'it'));
-    if (clienti.length === 0) {
-      sel.innerHTML = '<option value="">Nessun cliente con Colf e badanti a Si</option>';
-      return;
-    }
+    const clienti = Array.from(clientiAttivi.values())
+      .sort((a, b) => (String(a.cognome) + String(a.nome)).localeCompare(String(b.cognome) + String(b.nome), 'it'));
     sel.innerHTML = clienti.map(c =>
       `<option value="${c.cognome}|||${c.nome}|||${c.cf}">${c.cognome} ${c.nome}</option>`
     ).join('');
@@ -1690,6 +1709,27 @@
     popolaClientiPratica();
     if (!document.getElementById('dataAperturaNuovaPratica').value) {
       document.getElementById('dataAperturaNuovaPratica').value = new Date().toISOString().slice(0, 10);
+    }
+  }
+
+  // Migrazione una tantum: crea una pratica "Colf e badanti" attiva per
+  // ogni cliente che ha ancora il vecchio flag a Si in anagrafica, senza
+  // duplicare chi ce l'ha gia. Da usare una volta sola dopo il passaggio
+  // ai filtri basati sulle pratiche.
+  async function migraColfBadantiAPratiche() {
+    if (!confirm('Creare una pratica "Colf e badanti" attiva per ogni cliente che ha ancora il vecchio flag a Si? Chi ce l\'ha gia non viene duplicato.')) return;
+    const esito = document.getElementById('esitoMigrazione');
+    esito.textContent = ' In corso...';
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'migraColfBadantiAPratiche', password })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      esito.textContent = ` Create ${data.creati} pratiche nuove.`;
+      await caricaPratiche();
+    } else {
+      esito.textContent = ' ' + (data.errore || 'Errore, riprova.');
     }
   }
 
