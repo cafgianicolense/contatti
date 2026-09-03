@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 60 -->
+<!-- rev. 62 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -171,7 +171,7 @@
 </style>
 </head>
 <body>
-<div class="versione">Designed by Gianluca Cioè · rev. 60</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 62</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -302,8 +302,6 @@
       <br>
       <button class="secondario" onclick="caricaPratiche()">Aggiorna elenco</button>
       <button onclick="scaricaExcelPratiche()">Scarica Excel</button>
-      <button class="secondario" onclick="migraColfBadantiAPratiche()" title="Da usare una sola volta">Crea pratiche per i vecchi clienti Colf e badanti</button>
-      <span id="esitoMigrazione"></span>
       <label style="margin-top:14px">Cerca, per cliente, tipo, fase o qualunque altro dato<br>
         <input type="text" id="cercaPratiche" placeholder="Scrivi per filtrare..." oninput="disegnaTabellaPratiche()" style="max-width:480px">
       </label>
@@ -813,9 +811,10 @@
     }
     CAMPI_FISSI_MODALE.forEach(c => aggiungiCampoModale(c.etichetta, c.tipo, c.opzioni));
     (campi || []).forEach(c => aggiungiCampoModale(c.etichetta, c.tipo, c.opzioni));
-    ultimeIscrizioni.intestazioni.forEach(h => {
-      if (h && String(h).toLowerCase().trim() !== 'timestamp') aggiungiCampoModale(h, null, '');
-    });
+    // Niente altro: colonne come Timestamp o Consenso privacy restano
+    // sul foglio, gestite dal sistema stesso, ma non compaiono qui.
+    // Solo i dati anagrafici fissi e i campi configurati in Gestione
+    // campi, nell'ordine e col tipo che hai scelto li.
 
     elencoCampi.forEach(({ etichetta: intestazione, tipo, opzioni }) => {
       const idx = ultimeIscrizioni.intestazioni.findIndex(h => String(h) === intestazione);
@@ -843,7 +842,14 @@
         }
       };
 
-      if (tipo === 'checkbox') {
+      if (chiaveCampo === 'consenso privacy') {
+        // Il valore e sempre uno tra due, non ha senso lasciarlo come
+        // testo libero o area di testo.
+        div.innerHTML = `<label>${intestazione}</label><select data-colonna="${intestazione}">
+          <option value="Accettato" ${valore === 'Accettato' ? 'selected' : ''}>Accettato</option>
+          <option value="Non accettato" ${valore === 'Non accettato' ? 'selected' : ''}>Non accettato</option>
+        </select>`;
+      } else if (tipo === 'checkbox') {
         // Campo Si/No configurato come tale in Gestione campi: resta un
         // flag a prescindere dal valore attuale, anche se vuoto.
         div.innerHTML = `<label style="display:flex;align-items:center;gap:8px;cursor:pointer">
@@ -1705,31 +1711,12 @@
   // --- Pratiche ---
 
   async function caricaSchedaPratiche() {
-    await Promise.all([caricaIscrizioni(), caricaTipiPratica(), caricaPratiche()]);
+    // Anche le Buste paga, servono per calcolare lo stato vero del
+    // pagamento delle pratiche di tipo Colf e badanti.
+    await Promise.all([caricaIscrizioni(), caricaTipiPratica(), caricaPratiche(), caricaBustePaga()]);
     popolaClientiPratica();
     if (!document.getElementById('dataAperturaNuovaPratica').value) {
       document.getElementById('dataAperturaNuovaPratica').value = new Date().toISOString().slice(0, 10);
-    }
-  }
-
-  // Migrazione una tantum: crea una pratica "Colf e badanti" attiva per
-  // ogni cliente che ha ancora il vecchio flag a Si in anagrafica, senza
-  // duplicare chi ce l'ha gia. Da usare una volta sola dopo il passaggio
-  // ai filtri basati sulle pratiche.
-  async function migraColfBadantiAPratiche() {
-    if (!confirm('Creare una pratica "Colf e badanti" attiva per ogni cliente che ha ancora il vecchio flag a Si? Chi ce l\'ha gia non viene duplicato.')) return;
-    const esito = document.getElementById('esitoMigrazione');
-    esito.textContent = ' In corso...';
-    const res = await fetch(BACKEND_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'migraColfBadantiAPratiche', password })
-    });
-    const data = await res.json();
-    if (data.ok) {
-      esito.textContent = ` Create ${data.creati} pratiche nuove.`;
-      await caricaPratiche();
-    } else {
-      esito.textContent = ' ' + (data.errore || 'Errore, riprova.');
     }
   }
 
@@ -1931,6 +1918,21 @@
       '<th class="col-azioni">Azioni</th></tr>';
 
     righe.forEach(({ r, indiceOriginale }) => {
+      const isColf = String(r[iTipo] || '').toLowerCase().trim() === 'colf e badanti';
+      // Per Colf e badanti il pagamento non e un si/no fisso come per le
+      // altre pratiche, cambia mese per mese: si mostra lo stato vero
+      // preso dalle Buste paga, calcolato al volo, non piu un menu da
+      // spuntare a mano che finirebbe sempre per mentire in un modo o
+      // nell'altro.
+      const cellaPagamento = isColf
+        ? (() => {
+            const nonInRegola = clienteHaPagamentoNonInRegola(r[iCognome], r[iNome]);
+            return `<span style="font-weight:600;color:${nonInRegola ? 'var(--red)' : 'var(--green)'}">${nonInRegola ? 'Da regolarizzare' : 'In regola'}</span>`;
+          })()
+        : `<select onchange="aggiornaCellaPratica(${indiceOriginale}, 'Pagamento', this.value)">
+            <option value="Pagata" ${r[iPagamento] === 'Pagata' ? 'selected' : ''}>Pagata</option>
+            <option value="Gratuita con tessera" ${r[iPagamento] === 'Gratuita con tessera' ? 'selected' : ''}>Gratuita con tessera</option>
+          </select>`;
       html += `<tr>
         <td>${r[iCognome] || ''} ${r[iNome] || ''}</td>
         <td>${r[iTipo] || ''}</td>
@@ -1941,12 +1943,7 @@
             <option value="Conclusa" ${r[iFase] === 'Conclusa' ? 'selected' : ''}>Conclusa</option>
           </select>
         </td>
-        <td>
-          <select onchange="aggiornaCellaPratica(${indiceOriginale}, 'Pagamento', this.value)">
-            <option value="Pagata" ${r[iPagamento] === 'Pagata' ? 'selected' : ''}>Pagata</option>
-            <option value="Gratuita con tessera" ${r[iPagamento] === 'Gratuita con tessera' ? 'selected' : ''}>Gratuita con tessera</option>
-          </select>
-        </td>
+        <td>${cellaPagamento}</td>
         <td><input type="date" value="${r[iDataChiusura] ? String(r[iDataChiusura]).slice(0, 10) : ''}" onchange="aggiornaCellaPratica(${indiceOriginale}, 'DataChiusura', this.value)" style="width:140px"></td>
         <td><input type="text" value="${(r[iNota] || '').toString().replace(/"/g, '&quot;')}" onchange="aggiornaCellaPratica(${indiceOriginale}, 'Nota', this.value)" style="width:160px"></td>
         <td class="col-azioni"><button class="pericolo" onclick="eliminaPratica(${indiceOriginale})">Elimina</button></td>
