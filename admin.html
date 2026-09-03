@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 52 -->
+<!-- rev. 54 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -48,7 +48,7 @@
     margin: 0 0 4px; color: var(--ink);
   }
   label { font-weight: 600; font-size: 13px; }
-  input[type=text], input[type=password], input[type=number], select, textarea {
+  input[type=text], input[type=password], input[type=number], input[type=date], select, textarea {
     padding: 10px 11px; border: 1px solid var(--line); border-radius: 2px;
     font-size: 14px; font-family: 'Inter', sans-serif; background: #fdfcfa; color: var(--ink);
     transition: border-color .15s ease, box-shadow .15s ease;
@@ -140,6 +140,7 @@
   .riga-nuova-bustapaga button { margin-top: 0; width: auto; padding: 10px 18px; }
   .riga-campo input[type=text] { flex: 1; min-width: 90px; max-width: 160px; }
   .riga-campo label { font-weight: 500; display: flex; align-items: center; gap: 4px; }
+  #pannello { position: relative; }
   .tabs { display: flex; gap: 4px; margin-bottom: 22px; border-bottom: 1px solid var(--line); }
   .tabs button {
     background: none; color: var(--muted); font-weight: 600; padding: 10px 4px;
@@ -153,6 +154,13 @@
     position: fixed; bottom: 8px; right: 12px; font-size: 11px;
     color: var(--muted); opacity: 0.6; font-family: 'Inter', sans-serif;
   }
+  .icona-impostazioni {
+    position: absolute; top: 0; right: 0; width: 34px; height: 34px;
+    border-radius: 50%; background: var(--paper); border: 1px solid var(--line);
+    color: var(--muted); font-size: 16px; cursor: pointer; margin: 0; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .icona-impostazioni:hover { color: var(--blue); border-color: var(--blue); background: var(--card); }
   #loginBox { max-width: 280px; margin: 0 auto; text-align: center; }
   #loginBox input { width: 100%; margin-top: 6px; margin-bottom: 14px; }
   .nota { font-size: 13px; color: var(--muted); line-height: 1.5; }
@@ -163,7 +171,7 @@
 </style>
 </head>
 <body>
-<div class="versione">Designed by Gianluca Cioè · rev. 52</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 54</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -178,6 +186,7 @@
   </div>
 
   <div id="pannello" class="nascosto">
+    <button id="btnImpostazioni" class="icona-impostazioni" onclick="apriImpostazioni()" title="Impostazioni">&#9881;</button>
     <div class="tabs">
       <button id="tabIscrizioniBtn" class="attivo" onclick="mostraTab('iscrizioni')">Anagrafica</button>
       <button id="tabPraticheBtn" onclick="mostraTab('pratiche')">Pratiche</button>
@@ -300,15 +309,6 @@
           <button onclick="aggiungiPratica()">Aggiungi pratica</button>
         </div>
         <span id="esitoNuovaPratica"></span>
-      </div>
-
-      <div class="riquadro-nuova-bustapaga">
-        <h3>Tipi di pratica selezionabili</h3>
-        <p class="sottonota">Un elenco per riga, es. 730, ISEE, RED, Successione. Usato nel menu qui sopra.</p>
-        <textarea id="elencoTipiPratica" rows="5" style="width:100%;box-sizing:border-box"></textarea>
-        <br><br>
-        <button class="secondario" onclick="salvaTipiPratica()">Salva elenco</button>
-        <span id="esitoTipiPratica"></span>
       </div>
 
       <br>
@@ -1638,15 +1638,47 @@
     });
     const data = await res.json();
     tipiPraticaCorrenti = data.tipi || [];
-    document.getElementById('elencoTipiPratica').value = tipiPraticaCorrenti.join('\n');
     document.getElementById('tipoNuovaPratica').innerHTML =
       tipiPraticaCorrenti.map(t => `<option value="${t}">${t}</option>`).join('');
   }
 
-  async function salvaTipiPratica() {
-    const testo = document.getElementById('elencoTipiPratica').value;
+  // --- Impostazioni, dietro l'ingranaggio in alto a destra ---
+  // Un unico posto dove aggiungere via via altre impostazioni generali,
+  // oggi i tipi di pratica e il cambio password, in futuro anche altro,
+  // come l'importo della tessera.
+  function apriImpostazioni() {
+    document.getElementById('titoloModale').textContent = 'Impostazioni';
+    const corpo = document.getElementById('corpoModale');
+    corpo.innerHTML = `
+      <div class="campo-modale">
+        <label>Tipi di pratica selezionabili</label>
+        <p class="sottonota" style="margin:4px 0 8px">Un tipo per riga, es. 730, ISEE, RED, Successione.</p>
+        <textarea id="elencoTipiPraticaModale" rows="6" style="width:100%;box-sizing:border-box"></textarea>
+      </div>
+      <hr class="divisore" style="margin:20px 0">
+      <div class="campo-modale">
+        <label>Cambia password</label>
+        <p class="sottonota" style="margin:4px 0 8px">Vale per l'accesso a questo pannello.</p>
+        <input type="password" id="nuovaPasswordImpostazioni" placeholder="Nuova password" style="display:block;width:100%;box-sizing:border-box;margin-bottom:8px">
+        <input type="password" id="confermaPasswordImpostazioni" placeholder="Conferma nuova password" style="display:block;width:100%;box-sizing:border-box">
+        <br><br>
+        <button class="secondario" onclick="cambiaPasswordAdmin()">Cambia password</button>
+        <span id="esitoPasswordImpostazioni"></span>
+      </div>
+      <span id="esitoImpostazioni"></span>
+    `;
+    document.getElementById('elencoTipiPraticaModale').value = tipiPraticaCorrenti.join('\n');
+    const btn = document.getElementById('btnConfermaModale');
+    btn.textContent = 'Salva tipi di pratica';
+    btn.className = '';
+    btn.onclick = salvaImpostazioni;
+    document.getElementById('overlayModale').classList.remove('nascosto');
+  }
+
+  async function salvaImpostazioni() {
+    const testo = document.getElementById('elencoTipiPraticaModale').value;
     const tipi = testo.split('\n').map(t => t.trim()).filter(Boolean);
-    const esito = document.getElementById('esitoTipiPratica');
+    const esito = document.getElementById('esitoImpostazioni');
     const res = await fetch(BACKEND_URL, {
       method: 'POST',
       body: JSON.stringify({ action: 'saveTipiPratica', password, tipi })
@@ -1654,10 +1686,42 @@
     const data = await res.json();
     if (data.ok) {
       tipiPraticaCorrenti = tipi;
-      document.getElementById('tipoNuovaPratica').innerHTML = tipi.map(t => `<option value="${t}">${t}</option>`).join('');
-      esito.textContent = ' Salvato.';
+      const selTipo = document.getElementById('tipoNuovaPratica');
+      if (selTipo) selTipo.innerHTML = tipi.map(t => `<option value="${t}">${t}</option>`).join('');
+      chiudiModale();
     } else {
       esito.textContent = ' Errore, riprova.';
+    }
+  }
+
+  // Chiede la nuova password due volte per evitare refusi di battitura.
+  // Non serve reinserire quella attuale, l'accesso al pannello la
+  // conferma gia. Dopo il cambio, aggiorna la password usata dal
+  // pannello stesso per le chiamate successive, senza dover rientrare.
+  async function cambiaPasswordAdmin() {
+    const nuova = document.getElementById('nuovaPasswordImpostazioni').value;
+    const conferma = document.getElementById('confermaPasswordImpostazioni').value;
+    const esito = document.getElementById('esitoPasswordImpostazioni');
+    if (!nuova || nuova.length < 4) {
+      esito.textContent = ' Almeno 4 caratteri.';
+      return;
+    }
+    if (nuova !== conferma) {
+      esito.textContent = ' Le due password non coincidono.';
+      return;
+    }
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'cambiaPassword', password, nuovaPassword: nuova })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      password = nuova;
+      document.getElementById('nuovaPasswordImpostazioni').value = '';
+      document.getElementById('confermaPasswordImpostazioni').value = '';
+      esito.textContent = ' Password cambiata.';
+    } else {
+      esito.textContent = ' ' + (data.errore || 'Errore, riprova.');
     }
   }
 
