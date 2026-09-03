@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 65 -->
+<!-- rev. 66 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -189,7 +189,7 @@
 </head>
 <body>
 <div id="loaderGlobale" class="loader-overlay nascosto"><div class="spinner"></div></div>
-<div class="versione">Designed by Gianluca Cioè · rev. 65</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 66</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -1306,6 +1306,32 @@
     finestra.document.close();
   }
 
+  // Serve per inserire in sicurezza cognome e nome dentro un attributo
+  // HTML (data-cognome, data-nome), cosi un apostrofo o una virgoletta
+  // nel nome, tipo "D'Angelo", non rompe la pagina.
+  function escapeAttr(testo) {
+    return String(testo || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  // Click sul cognome nella scheda Pratiche: trova quel cliente in
+  // anagrafica e apre la stessa finestra di Modifica anagrafica usata
+  // dalla scheda Anagrafica.
+  function apriAnagraficaDaPratica(cella) {
+    const cognome = cella.dataset.cognome || '';
+    const nome = cella.dataset.nome || '';
+    const idxCognome = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === 'cognome');
+    const idxNome = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === 'nome');
+    const indice = ultimeIscrizioni.righe.findIndex(r =>
+      String(idxCognome >= 0 ? r[idxCognome] : '').toLowerCase().trim() === cognome.toLowerCase().trim() &&
+      String(idxNome >= 0 ? r[idxNome] : '').toLowerCase().trim() === nome.toLowerCase().trim()
+    );
+    if (indice === -1) {
+      alert('Cliente non trovato in anagrafica. Aggiorna l\'elenco e riprova.');
+      return;
+    }
+    apriModificaAnagrafica(indice);
+  }
+
   // Restituisce, come Map chiave->{cognome,nome,cf}, i clienti che hanno
   // una pratica di questo tipo con Fase Attiva. Usata sia per l'invio
   // email colf/badanti sia per il menu cliente delle buste paga, cosi il
@@ -2065,7 +2091,7 @@
             <option value="Gratuita con tessera" ${r[iPagamento] === 'Gratuita con tessera' ? 'selected' : ''}>Gratuita con tessera</option>
           </select>`;
       html += `<tr>
-        <td>${r[iCognome] || ''} ${r[iNome] || ''}</td>
+        <td class="cognome-cliccabile" title="Click per aprire l'anagrafica" data-cognome="${escapeAttr(r[iCognome])}" data-nome="${escapeAttr(r[iNome])}" onclick="apriAnagraficaDaPratica(this)">${r[iCognome] || ''} ${r[iNome] || ''}</td>
         <td>${r[iTipo] || ''}</td>
         <td>${formattaData(r[iDataApertura])}</td>
         <td>
