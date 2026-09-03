@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 62 -->
+<!-- rev. 64 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -39,6 +39,12 @@
   .intestazione { display: flex; justify-content: center; margin-bottom: 18px; }
   .intestazione img { max-width: 200px; display: block; }
   .divisore { border: none; border-top: 2px dashed var(--blue); opacity: 0.55; margin: 0 0 26px; }
+  .nota-cf { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .riga-pratica-riepilogo {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 9px 0; border-bottom: 1px solid var(--line); gap: 12px; flex-wrap: wrap;
+  }
+  .riga-pratica-riepilogo:last-child { border-bottom: none; }
   h1 {
     font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 22px;
     text-align: center; letter-spacing: -0.01em; margin: 0 0 22px;
@@ -171,7 +177,7 @@
 </style>
 </head>
 <body>
-<div class="versione">Designed by Gianluca Cioè · rev. 62</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 64</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -211,7 +217,7 @@
       <h2>Anagrafica raccolta</h2>
       <button onclick="caricaIscrizioni(true)">Aggiorna elenco</button>
       <button onclick="scaricaExcel()">Scarica Excel</button>
-      <p class="nota" style="margin-top:10px">Alcune colonne meno usate sono nascoste dalla tabella ma restano cercabili. Doppio click sul cognome per modificare l'anagrafica.</p>
+      <p class="nota" style="margin-top:10px">Alcune colonne meno usate sono nascoste dalla tabella ma restano cercabili. Click sul cognome per il riepilogo delle pratiche, doppio click per modificare l'anagrafica.</p>
       <label style="margin-top:14px">Cerca, per cognome, nome, data di nascita o qualunque altro dato<br>
         <input type="text" id="cercaIscrizioni" placeholder="Scrivi per filtrare..." oninput="disegnaTabellaIscrizioni()" style="max-width:480px">
       </label>
@@ -742,13 +748,14 @@
       html += `<tr class="${scadenza && scadenza.scaduta ? 'riga-scaduta' : ''}">` + colonneVisibili.map(i => {
         const valore = formattaCella(r[i], i) || '';
         if (i === idxCognome) {
-          return `<td class="cognome-cliccabile" title="Doppio click per modificare l'anagrafica" ondblclick="apriModificaAnagrafica(${indiceOriginale})">${valore}</td>`;
+          return `<td class="cognome-cliccabile" title="Click per le pratiche, doppio click per modificare l'anagrafica" onclick="gestisciClickCognome(${indiceOriginale})" ondblclick="gestisciDoppioClickCognome(${indiceOriginale})">${valore}</td>`;
         }
         return `<td>${valore}</td>`;
       }).join('') +
         (idxTessera >= 0 ? `<td>${scadenza ? scadenza.testo : ''}</td>` : '') +
         `<td class="col-azioni">
           <div class="azioni-verticali">
+            <button class="secondario" onclick="apriRiepilogoPratiche(${indiceOriginale})">Pratiche</button>
             <button class="secondario" onclick="stampaMandato(${indiceOriginale})">Stampa mandato</button>
             <button class="secondario" onclick="apriModificaAnagrafica(${indiceOriginale})">Modifica anagrafica</button>
             <button class="pericolo" onclick="apriElimina(${indiceOriginale})">Elimina</button>
@@ -765,9 +772,102 @@
   // confermare l'eliminazione di una iscrizione ---
   let indiceInModale = null;
 
+  // Il browser genera comunque degli eventi "click" anche dentro un
+  // doppio click, quindi non si possono agganciare onclick e ondblclick
+  // direttamente alle due azioni: la versione asincrona del riepilogo
+  // pratiche finirebbe per sovrascrivere la finestra di modifica aperta
+  // subito dopo dal doppio click. Si aspetta un istante prima di aprire
+  // il riepilogo, e si annulla se nel frattempo arriva il doppio click.
+  let timeoutClickCognome = null;
+  function gestisciClickCognome(indiceRiga) {
+    clearTimeout(timeoutClickCognome);
+    timeoutClickCognome = setTimeout(() => apriRiepilogoPratiche(indiceRiga), 280);
+  }
+  function gestisciDoppioClickCognome(indiceRiga) {
+    clearTimeout(timeoutClickCognome);
+    apriModificaAnagrafica(indiceRiga);
+  }
+
   function chiudiModale() {
     document.getElementById('overlayModale').classList.add('nascosto');
+    document.getElementById('btnConfermaModale').disabled = false;
     indiceInModale = null;
+  }
+
+  // Riepilogo di sola consultazione delle pratiche di un cliente, aperte
+  // e concluse. Per Colf e badanti mostra lo stato vero del pagamento
+  // preso dalle Buste paga, come nella scheda Pratiche.
+  async function apriRiepilogoPratiche(indiceRiga) {
+    const riga = ultimeIscrizioni.righe[indiceRiga];
+    const idxCognome = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === 'cognome');
+    const idxNome = ultimeIscrizioni.intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === 'nome');
+    const cognome = idxCognome >= 0 ? String(riga[idxCognome] || '') : '';
+    const nome = idxNome >= 0 ? String(riga[idxNome] || '') : '';
+    const nominativo = [cognome, nome].filter(Boolean).join(' ') || 'questo cliente';
+
+    document.getElementById('titoloModale').textContent = 'Pratiche di ' + nominativo;
+    const corpo = document.getElementById('corpoModale');
+    corpo.innerHTML = '<p class="nota">Caricamento...</p>';
+    const btn = document.getElementById('btnConfermaModale');
+    btn.textContent = 'Vai a Pratiche';
+    btn.className = 'secondario';
+    btn.disabled = true;
+    btn.onclick = () => {
+      chiudiModale();
+      mostraTab('pratiche');
+      document.getElementById('cercaPratiche').value = nominativo;
+      disegnaTabellaPratiche();
+    };
+    document.getElementById('overlayModale').classList.remove('nascosto');
+
+    // Dati sempre freschi, cosi il riepilogo non mostra pratiche vecchie.
+    await Promise.all([caricaPratiche(), caricaBustePaga()]);
+
+    const iCognome = ultimePratiche.intestazioni.indexOf('Cognome');
+    const iNome = ultimePratiche.intestazioni.indexOf('Nome');
+    const iTipo = ultimePratiche.intestazioni.indexOf('Tipo');
+    const iDataApertura = ultimePratiche.intestazioni.indexOf('DataApertura');
+    const iFase = ultimePratiche.intestazioni.indexOf('Fase');
+    const iPagamento = ultimePratiche.intestazioni.indexOf('Pagamento');
+    const iDataChiusura = ultimePratiche.intestazioni.indexOf('DataChiusura');
+
+    const praticheCliente = (ultimePratiche.righe || []).filter(r =>
+      String(r[iCognome] || '').toLowerCase().trim() === cognome.toLowerCase().trim() &&
+      String(r[iNome] || '').toLowerCase().trim() === nome.toLowerCase().trim()
+    );
+    const attive = praticheCliente.filter(r => String(r[iFase] || '').toLowerCase().trim() === 'attiva');
+    const concluse = praticheCliente.filter(r => String(r[iFase] || '').toLowerCase().trim() === 'conclusa');
+
+    function statoPagamento(r) {
+      const tipo = String(r[iTipo] || '').toLowerCase().trim();
+      if (tipo === 'colf e badanti') {
+        const nonInRegola = clienteHaPagamentoNonInRegola(cognome, nome);
+        return `<span style="font-weight:600;color:${nonInRegola ? 'var(--red)' : 'var(--green)'}">${nonInRegola ? 'Da regolarizzare' : 'In regola'}</span>`;
+      }
+      return r[iPagamento] || '';
+    }
+
+    function rigaHtml(r, conclusa) {
+      return `<div class="riga-pratica-riepilogo">
+        <span><strong>${r[iTipo] || ''}</strong><br>
+          <span class="nota-cf">Aperta il ${formattaData(r[iDataApertura])}${conclusa ? ', chiusa il ' + formattaData(r[iDataChiusura]) : ''}</span>
+        </span>
+        <span>${statoPagamento(r)}</span>
+      </div>`;
+    }
+
+    let html;
+    if (praticheCliente.length === 0) {
+      html = '<p class="nota">Nessuna pratica per questo cliente.</p>';
+    } else {
+      html = '<h3 style="margin:0 0 6px">Pratiche attive</h3>' +
+        (attive.length ? attive.map(r => rigaHtml(r, false)).join('') : '<p class="nota">Nessuna.</p>') +
+        '<hr class="divisore" style="margin:18px 0">' +
+        '<h3 style="margin:0 0 6px">Pratiche concluse</h3>' +
+        (concluse.length ? concluse.map(r => rigaHtml(r, true)).join('') : '<p class="nota">Nessuna.</p>');
+    }
+    corpo.innerHTML = html;
+    btn.disabled = false;
   }
 
   function apriModificaAnagrafica(indiceRiga) {
