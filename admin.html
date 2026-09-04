@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 70 -->
+<!-- rev. 71 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -190,7 +190,7 @@
 </head>
 <body>
 <div id="loaderGlobale" class="loader-overlay nascosto"><div class="spinner"></div></div>
-<div class="versione">Designed by Gianluca Cioè · rev. 70</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 71</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -240,7 +240,7 @@
     <div id="tabEmail" class="nascosto">
       <h2>Invio mail colf/badanti</h2>
       <p class="nota">Solo gli iscritti con Colf e badanti a Si. Le righe in rosa hanno un pagamento non in regola. Usa segnaposto come <code>{{Nome}}</code> o <code>{{Cognome}}</code> per personalizzare ogni email.</p>
-      <button class="secondario" onclick="caricaSchedaEmail()">Aggiorna elenco</button>
+      <button class="secondario" onclick="caricaSchedaEmail(true)">Aggiorna elenco</button>
       <br><br>
       <label>Oggetto<br>
         <input type="text" id="oggettoEmail" style="width:100%;box-sizing:border-box">
@@ -266,7 +266,7 @@
     <div id="tabEmailMassivo" class="nascosto">
       <h2>Invio mail massivo</h2>
       <p class="nota">Tutta l'anagrafica, non solo colf e badanti. Le righe in rosa hanno la tessera scaduta. Usa segnaposto come <code>{{Nome}}</code> o <code>{{Cognome}}</code> per personalizzare ogni email.</p>
-      <button class="secondario" onclick="caricaSchedaEmailMassivo()">Aggiorna elenco</button>
+      <button class="secondario" onclick="caricaSchedaEmailMassivo(true)">Aggiorna elenco</button>
       <br><br>
       <label>Oggetto<br>
         <input type="text" id="oggettoEmailMassivo" style="width:100%;box-sizing:border-box">
@@ -319,7 +319,7 @@
       </div>
 
       <br>
-      <button class="secondario" onclick="caricaPratiche()">Aggiorna elenco</button>
+      <button class="secondario" onclick="caricaSchedaPratiche(true)">Aggiorna elenco</button>
       <button onclick="scaricaExcelPratiche()">Scarica Excel</button>
       <button id="btnFiltroLuca" class="secondario" onclick="toggleFiltroLuca()">Solo servizi di Luca</button>
       <label style="margin-top:14px">Cerca, per cliente, tipo, fase o qualunque altro dato<br>
@@ -351,7 +351,7 @@
       </div>
 
       <br>
-      <button class="secondario" onclick="caricaBustePaga(true)">Aggiorna elenco</button>
+      <button class="secondario" onclick="caricaSchedaBustePaga(true)">Aggiorna elenco</button>
       <label style="margin-top:14px">Cerca, per cliente, dipendente o anno<br>
         <input type="text" id="cercaBustePaga" placeholder="Scrivi per filtrare..." oninput="disegnaTabellaBustePaga()" style="max-width:340px">
       </label>
@@ -403,11 +403,15 @@
   let importoTesseraCorrente = '30';
   let ultimeBustePaga = { intestazioni: [], righe: [] };
   let ultimeBustePagaAggiornate = 0;
+  let ultimaSchedaPraticheAggiornata = 0;
+  let ultimaSchedaEmailAggiornata = 0;
+  let ultimaSchedaEmailMassivoAggiornata = 0;
+  let ultimaSchedaBustePagaAggiornata = 0;
   let ultimePratiche = { intestazioni: [], righe: [] };
   let tipiPraticaCorrenti = [];
   let tipiPraticaLucaCorrenti = [];
   let filtroLucaAttivo = false;
-  const DURATA_CACHE_MS = 8000;
+  const DURATA_CACHE_MS = 45000;
 
   // --- Ordinamento riutilizzabile, per intestazioni di colonna cliccabili ---
   // Uno stato per ogni tabella, ricorda quale colonna e in che verso.
@@ -1382,7 +1386,11 @@
     return trovati;
   }
 
-  async function caricaSchedaEmail() {
+  async function caricaSchedaEmail(forza) {
+    if (!forza && ultimaSchedaEmailAggiornata && Date.now() - ultimaSchedaEmailAggiornata < DURATA_CACHE_MS) {
+      disegnaDestinatari();
+      return;
+    }
     // Una sola chiamata combinata, invece di quattro separate.
     const res = await fetch(BACKEND_URL, {
       method: 'POST',
@@ -1396,6 +1404,7 @@
     ultimePratiche = data.pratiche || { intestazioni: [], righe: [] };
     document.getElementById('oggettoEmail').value = (data.modello && data.modello.oggetto) || '';
     document.getElementById('corpoEmail').value = (data.modello && data.modello.corpo) || '';
+    ultimaSchedaEmailAggiornata = Date.now();
     disegnaDestinatari();
   }
 
@@ -1545,7 +1554,11 @@
 
   // --- Invio mail massivo, tutta l'anagrafica ---
 
-  async function caricaSchedaEmailMassivo() {
+  async function caricaSchedaEmailMassivo(forza) {
+    if (!forza && ultimaSchedaEmailMassivoAggiornata && Date.now() - ultimaSchedaEmailMassivoAggiornata < DURATA_CACHE_MS) {
+      disegnaDestinatariMassivo();
+      return;
+    }
     const res = await fetch(BACKEND_URL, {
       method: 'POST',
       body: JSON.stringify({ action: 'getSchedaEmailMassivo', password })
@@ -1555,6 +1568,7 @@
     ultimeIscrizioniAggiornate = Date.now();
     document.getElementById('oggettoEmailMassivo').value = (data.modello && data.modello.oggetto) || '';
     document.getElementById('corpoEmailMassivo').value = (data.modello && data.modello.corpo) || '';
+    ultimaSchedaEmailMassivoAggiornata = Date.now();
     disegnaDestinatariMassivo();
   }
 
@@ -1743,7 +1757,12 @@
     return anno < annoCorrente || (anno === annoCorrente && mesePagato < meseCorrente);
   }
 
-  async function caricaSchedaBustePaga() {
+  async function caricaSchedaBustePaga(forza) {
+    if (!forza && ultimaSchedaBustePagaAggiornata && Date.now() - ultimaSchedaBustePagaAggiornata < DURATA_CACHE_MS) {
+      popolaClientiNuovaBustaPaga();
+      disegnaTabellaBustePaga();
+      return;
+    }
     const res = await fetch(BACKEND_URL, {
       method: 'POST',
       body: JSON.stringify({ action: 'getSchedaBustePaga', password })
@@ -1754,6 +1773,7 @@
     ultimeBustePaga = data.bustePaga || { intestazioni: [], righe: [] };
     ultimeBustePagaAggiornate = Date.now();
     ultimePratiche = data.pratiche || { intestazioni: [], righe: [] };
+    ultimaSchedaBustePagaAggiornata = Date.now();
     popolaClientiNuovaBustaPaga();
     document.getElementById('annoNuovaBustaPaga').value = new Date().getFullYear();
     disegnaTabellaBustePaga();
@@ -1929,7 +1949,18 @@
     disegnaTabellaPratiche();
   }
 
-  async function caricaSchedaPratiche() {
+  async function caricaSchedaPratiche(forza) {
+    // Se hai gia aperto questa scheda da meno di DURATA_CACHE_MS, riusa
+    // i dati che ci sono gia invece di richiederli di nuovo al foglio.
+    // "Aggiorna elenco" passa forza=true e salta sempre la cache.
+    if (!forza && ultimaSchedaPraticheAggiornata && Date.now() - ultimaSchedaPraticheAggiornata < DURATA_CACHE_MS) {
+      popolaClientiPratica();
+      disegnaTabellaPratiche();
+      if (!document.getElementById('dataAperturaNuovaPratica').value) {
+        document.getElementById('dataAperturaNuovaPratica').value = new Date().toISOString().slice(0, 10);
+      }
+      return;
+    }
     // Una sola chiamata combinata, invece di quattro separate che
     // finirebbero comunque in coda una dietro l'altra.
     const res = await fetch(BACKEND_URL, {
@@ -1946,6 +1977,7 @@
     ultimePratiche = data.pratiche || { intestazioni: [], righe: [] };
     ultimeBustePaga = data.bustePaga || { intestazioni: [], righe: [] };
     ultimeBustePagaAggiornate = Date.now();
+    ultimaSchedaPraticheAggiornata = Date.now();
     popolaClientiPratica();
     disegnaTabellaPratiche();
     if (!document.getElementById('dataAperturaNuovaPratica').value) {
