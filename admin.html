@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 80 -->
+<!-- rev. 81 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -194,7 +194,7 @@
 </head>
 <body>
 <div id="loaderGlobale" class="loader-overlay nascosto"><div class="spinner"></div></div>
-<div class="versione">Designed by Gianluca Cioè · rev. 80</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 81</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -1451,7 +1451,11 @@
   // nessuna riga li dentro, nessuno lo sta seguendo, "in-regola" o
   // "da-regolarizzare" altrimenti. Un cliente senza righe non e "in
   // regola" per difetto, sono due cose diverse: una dice che va tutto
-  // bene, l'altra che non ne sappiamo nulla.
+  // bene, l'altra che non ne sappiamo nulla. Stesso discorso per una
+  // riga che esiste ma non ha mai avuto un "Pagato fino a" compilato,
+  // quella non e "in regola", e semplicemente non ancora segnata come
+  // pagata (bug reale trovato, caso Galasso Piero, riga 2026 con tutti
+  // i mesi vuoti che risultava comunque "In regola").
   function statoPagamentoColf(cognome, nome) {
     if (!ultimeBustePaga.intestazioni || ultimeBustePaga.intestazioni.length === 0) return 'non-tracciato';
     const iCognome = ultimeBustePaga.intestazioni.indexOf('Cognome');
@@ -1464,7 +1468,11 @@
       String(r[iNome] || '').toLowerCase().trim() === String(nome || '').toLowerCase().trim()
     );
     if (righeCliente.length === 0) return 'non-tracciato';
-    const nonInRegola = righeCliente.some(r => pagamentoScaduto(r[iPagatoMese], r[iPagatoAnno]));
+    const nonInRegola = righeCliente.some(r => {
+      const mese = r[iPagatoMese], anno = r[iPagatoAnno];
+      if (!mese || !anno) return true;
+      return pagamentoScaduto(mese, anno);
+    });
     return nonInRegola ? 'da-regolarizzare' : 'in-regola';
   }
 
