@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 75 -->
+<!-- rev. 77 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -193,7 +193,7 @@
 </head>
 <body>
 <div id="loaderGlobale" class="loader-overlay nascosto"><div class="spinner"></div></div>
-<div class="versione">Designed by Gianluca Cioè · rev. 75</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 77</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -311,10 +311,13 @@
             <select id="clienteNuovaPratica" style="min-width:220px"></select>
           </label>
           <label>Tipo di pratica
-            <select id="tipoNuovaPratica" style="min-width:160px"></select>
+            <select id="tipoNuovaPratica" style="min-width:160px" onchange="aggiornaCampoDipendentePratica()"></select>
           </label>
           <label>Data apertura
             <input type="date" id="dataAperturaNuovaPratica">
+          </label>
+          <label id="campoDipendentePratica" class="nascosto">Dipendente
+            <input type="text" id="dipendenteNuovaPratica" placeholder="Solo se ne ha piu di uno" style="min-width:160px">
           </label>
           <button onclick="aggiungiPratica()">Aggiungi pratica</button>
         </div>
@@ -325,6 +328,8 @@
       <button class="secondario" onclick="caricaSchedaPratiche(true)">Aggiorna elenco</button>
       <button onclick="scaricaExcelPratiche()">Scarica Excel</button>
       <button id="btnFiltroLuca" class="secondario" onclick="toggleFiltroLuca()">Solo servizi di Luca</button>
+      <button class="secondario" onclick="creaRigheBustaPagaMancanti()" title="Da usare una volta sola">Aggiungi a Buste paga chi manca ancora</button>
+      <span id="esitoMigrazioneBustaPaga"></span>
       <label style="margin-top:14px">Cerca, per cliente, tipo, fase o qualunque altro dato<br>
         <input type="text" id="cercaPratiche" placeholder="Scrivi per filtrare..." oninput="disegnaTabellaPratiche()" style="max-width:480px">
       </label>
@@ -911,8 +916,8 @@
     function statoPagamento(r) {
       const tipo = String(r[iTipo] || '').toLowerCase().trim();
       if (tipo === 'colf e badanti') {
-        const nonInRegola = clienteHaPagamentoNonInRegola(cognome, nome);
-        return `<span style="font-weight:600;color:${nonInRegola ? 'var(--red)' : 'var(--green)'}">${nonInRegola ? 'Da regolarizzare' : 'In regola'}</span>`;
+        const stato = statoPagamentoColf(cognome, nome);
+        return `<span style="font-weight:600;color:${coloreStatoPagamento(stato)}">${testoStatoPagamento(stato)}</span>`;
       }
       return r[iPagamento] || '';
     }
@@ -1442,18 +1447,38 @@
 
   // Vero se quel cliente ha almeno una riga nelle Buste paga con il
   // pagamento scaduto, a prescindere dall'anno o dal dipendente.
-  function clienteHaPagamentoNonInRegola(cognome, nome) {
-    if (!ultimeBustePaga.intestazioni || ultimeBustePaga.intestazioni.length === 0) return false;
+  // Restituisce lo stato vero del pagamento per un cliente Colf e
+  // badanti, preso dalle Buste paga: "non-tracciato" se non ha ancora
+  // nessuna riga li dentro, nessuno lo sta seguendo, "in-regola" o
+  // "da-regolarizzare" altrimenti. Un cliente senza righe non e "in
+  // regola" per difetto, sono due cose diverse: una dice che va tutto
+  // bene, l'altra che non ne sappiamo nulla.
+  function statoPagamentoColf(cognome, nome) {
+    if (!ultimeBustePaga.intestazioni || ultimeBustePaga.intestazioni.length === 0) return 'non-tracciato';
     const iCognome = ultimeBustePaga.intestazioni.indexOf('Cognome');
     const iNome = ultimeBustePaga.intestazioni.indexOf('Nome');
     const iPagatoMese = ultimeBustePaga.intestazioni.indexOf('PagatoFinoMese');
     const iPagatoAnno = ultimeBustePaga.intestazioni.indexOf('PagatoFinoAnno');
-    if (iCognome < 0 || iNome < 0) return false;
-    return ultimeBustePaga.righe.some(r =>
-      String(r[iCognome] || '').toLowerCase() === String(cognome || '').toLowerCase() &&
-      String(r[iNome] || '').toLowerCase() === String(nome || '').toLowerCase() &&
-      pagamentoScaduto(r[iPagatoMese], r[iPagatoAnno])
+    if (iCognome < 0 || iNome < 0) return 'non-tracciato';
+    const righeCliente = ultimeBustePaga.righe.filter(r =>
+      String(r[iCognome] || '').toLowerCase().trim() === String(cognome || '').toLowerCase().trim() &&
+      String(r[iNome] || '').toLowerCase().trim() === String(nome || '').toLowerCase().trim()
     );
+    if (righeCliente.length === 0) return 'non-tracciato';
+    const nonInRegola = righeCliente.some(r => pagamentoScaduto(r[iPagatoMese], r[iPagatoAnno]));
+    return nonInRegola ? 'da-regolarizzare' : 'in-regola';
+  }
+
+  function testoStatoPagamento(stato) {
+    if (stato === 'da-regolarizzare') return 'Da regolarizzare';
+    if (stato === 'in-regola') return 'In regola';
+    return 'Non tracciato';
+  }
+
+  function coloreStatoPagamento(stato) {
+    if (stato === 'da-regolarizzare') return 'var(--red)';
+    if (stato === 'in-regola') return 'var(--green)';
+    return 'var(--muted)';
   }
 
   function disegnaDestinatari() {
@@ -1494,13 +1519,13 @@
       const cognome = idxCognome >= 0 ? r[idxCognome] : '';
       const nome = idxNome >= 0 ? r[idxNome] : '';
       const nominativo = [cognome, nome].filter(Boolean).join(' ') || '(senza nome)';
-      const nonInRegola = clienteHaPagamentoNonInRegola(cognome, nome);
+      const stato = statoPagamentoColf(cognome, nome);
       const emailMostrata = (r[idxEmail] || '(indirizzo mancante)').toString().toLowerCase();
-      html += `<tr class="${nonInRegola ? 'riga-scaduta' : ''}">
+      html += `<tr class="${stato === 'da-regolarizzare' ? 'riga-scaduta' : ''}">
         <td><input type="checkbox" class="dest" checked data-riga="${i}"></td>
         <td>${nominativo.toUpperCase()}</td>
         <td>${emailMostrata}</td>
-        <td>${nonInRegola ? 'Da regolarizzare' : 'In regola'}</td>
+        <td>${testoStatoPagamento(stato)}</td>
       </tr>`;
     });
     html += '</table>';
@@ -1984,6 +2009,7 @@
     tipiPraticaLucaCorrenti = data.tipiPraticaLuca || [];
     document.getElementById('tipoNuovaPratica').innerHTML =
       tipiPraticaCorrenti.map(t => `<option value="${t}">${t}</option>`).join('');
+    aggiornaCampoDipendentePratica();
     ultimePratiche = data.pratiche || { intestazioni: [], righe: [] };
     ultimeBustePaga = data.bustePaga || { intestazioni: [], righe: [] };
     ultimeBustePagaAggiornate = Date.now();
@@ -2027,6 +2053,7 @@
     tipiPraticaCorrenti = data.tipi || [];
     document.getElementById('tipoNuovaPratica').innerHTML =
       tipiPraticaCorrenti.map(t => `<option value="${t}">${t}</option>`).join('');
+    aggiornaCampoDipendentePratica();
   }
 
   // --- Impostazioni, dietro l'ingranaggio in alto a destra ---
@@ -2152,7 +2179,10 @@
       tipiPraticaCorrenti = tipi;
       tipiPraticaLucaCorrenti = tipiLuca;
       const selTipo = document.getElementById('tipoNuovaPratica');
-      if (selTipo) selTipo.innerHTML = tipi.map(t => `<option value="${t}">${t}</option>`).join('');
+      if (selTipo) {
+        selTipo.innerHTML = tipi.map(t => `<option value="${t}">${t}</option>`).join('');
+        aggiornaCampoDipendentePratica();
+      }
       chiudiModale();
     } else {
       mostraEsitoTemporaneo(esito, ' Errore, riprova.');
@@ -2190,10 +2220,42 @@
     }
   }
 
+  // Una tantum: sistema subito i casi come Galasso, che hanno gia una
+  // pratica Colf e badanti ma non erano mai stati aggiunti a Buste
+  // paga a parte. Da usare una volta, poi non serve piu.
+  async function creaRigheBustaPagaMancanti() {
+    if (!confirm('Aggiungere a Buste paga tutti i clienti con una pratica Colf e badanti che ancora non ci sono? Chi c\'e gia non viene duplicato.')) return;
+    const esito = document.getElementById('esitoMigrazioneBustaPaga');
+    esito.textContent = ' In corso...';
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'creaRigheBustaPagaMancantiDaPratiche', password })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      esito.textContent = ` Aggiunti ${data.creati} clienti a Buste paga.`;
+      await caricaSchedaBustePaga(true);
+    } else {
+      esito.textContent = ' ' + (data.errore || 'Errore, riprova.');
+    }
+  }
+
+  // Mostra il campo Dipendente solo quando il tipo scelto e "Colf e
+  // badanti", per il quale la pratica porta con se anche il
+  // tracciamento in Buste paga. Per gli altri tipi non serve.
+  function aggiornaCampoDipendentePratica() {
+    const tipo = document.getElementById('tipoNuovaPratica').value;
+    const campo = document.getElementById('campoDipendentePratica');
+    const isColf = String(tipo || '').toLowerCase().trim() === 'colf e badanti';
+    campo.classList.toggle('nascosto', !isColf);
+    if (!isColf) document.getElementById('dipendenteNuovaPratica').value = '';
+  }
+
   async function aggiungiPratica() {
     const valore = document.getElementById('clienteNuovaPratica').value;
     const tipo = document.getElementById('tipoNuovaPratica').value;
     const dataApertura = document.getElementById('dataAperturaNuovaPratica').value;
+    const dipendente = document.getElementById('dipendenteNuovaPratica').value;
     const esito = document.getElementById('esitoNuovaPratica');
     if (!valore || !tipo || !dataApertura) {
       esito.textContent = ' Scegli cliente, tipo e data.';
@@ -2202,16 +2264,18 @@
     const [cognome, nome, codiceFiscale] = valore.split('|||');
     const res = await fetch(BACKEND_URL, {
       method: 'POST',
-      body: JSON.stringify({ action: 'aggiungiPratica', password, cognome, nome, codiceFiscale, tipo, dataApertura })
+      body: JSON.stringify({ action: 'aggiungiPratica', password, cognome, nome, codiceFiscale, tipo, dataApertura, dipendente })
     });
     const data = await res.json();
     if (data.ok) {
-      mostraEsitoTemporaneo(esito, ' Aggiunta.');
+      mostraEsitoTemporaneo(esito, data.bustaPagaCreata ? ' Aggiunta, e aggiunta anche a Buste paga.' : ' Aggiunta.');
       // Svuota il riquadro, pronto per la pratica successiva, invece di
       // lasciare cliente e tipo dell'ultima aggiunta ancora selezionati.
       document.getElementById('clienteNuovaPratica').selectedIndex = 0;
       document.getElementById('tipoNuovaPratica').selectedIndex = 0;
       document.getElementById('dataAperturaNuovaPratica').value = new Date().toISOString().slice(0, 10);
+      document.getElementById('dipendenteNuovaPratica').value = '';
+      aggiornaCampoDipendentePratica();
       await caricaPratiche();
     } else {
       mostraEsitoTemporaneo(esito, ' Errore, riprova.');
@@ -2285,8 +2349,8 @@
       // nell'altro.
       const cellaPagamento = isColf
         ? (() => {
-            const nonInRegola = clienteHaPagamentoNonInRegola(r[iCognome], r[iNome]);
-            return `<span style="font-weight:600;color:${nonInRegola ? 'var(--red)' : 'var(--green)'}">${nonInRegola ? 'Da regolarizzare' : 'In regola'}</span>`;
+            const stato = statoPagamentoColf(r[iCognome], r[iNome]);
+            return `<span style="font-weight:600;color:${coloreStatoPagamento(stato)}">${testoStatoPagamento(stato)}</span>`;
           })()
         : (() => {
             // "Pagata"/"Pagato" restano riconosciuti come "Pagamento" per
