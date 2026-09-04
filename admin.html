@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 67 -->
+<!-- rev. 70 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -70,6 +70,7 @@
   button:hover { background: var(--blue-dark); }
   button.secondario { background: #6b6a63; }
   button.secondario:hover { background: #55544e; }
+  button.attivo-filtro { background: var(--blue); }
   button.pericolo { background: var(--red); }
   button.pericolo:hover { background: var(--red-dark); }
   table { width: 100%; border-collapse: collapse; margin-top: 14px; }
@@ -189,7 +190,7 @@
 </head>
 <body>
 <div id="loaderGlobale" class="loader-overlay nascosto"><div class="spinner"></div></div>
-<div class="versione">Designed by Gianluca Cioè · rev. 67</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 70</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -320,6 +321,7 @@
       <br>
       <button class="secondario" onclick="caricaPratiche()">Aggiorna elenco</button>
       <button onclick="scaricaExcelPratiche()">Scarica Excel</button>
+      <button id="btnFiltroLuca" class="secondario" onclick="toggleFiltroLuca()">Solo servizi di Luca</button>
       <label style="margin-top:14px">Cerca, per cliente, tipo, fase o qualunque altro dato<br>
         <input type="text" id="cercaPratiche" placeholder="Scrivi per filtrare..." oninput="disegnaTabellaPratiche()" style="max-width:480px">
       </label>
@@ -403,6 +405,8 @@
   let ultimeBustePagaAggiornate = 0;
   let ultimePratiche = { intestazioni: [], righe: [] };
   let tipiPraticaCorrenti = [];
+  let tipiPraticaLucaCorrenti = [];
+  let filtroLucaAttivo = false;
   const DURATA_CACHE_MS = 8000;
 
   // --- Ordinamento riutilizzabile, per intestazioni di colonna cliccabili ---
@@ -489,15 +493,19 @@
     try {
       const res = await fetch(BACKEND_URL, {
         method: 'POST',
-        body: JSON.stringify({ action: 'login', password })
+        body: JSON.stringify({ action: 'getSchedaIniziale', password })
       });
       const data = await res.json();
       if (data.ok) {
+        campi = data.campi || [];
+        testoInformativaCorrente = data.privacy || '';
+        importoTesseraCorrente = data.importoTessera || '30';
+        ultimeIscrizioni = data.iscrizioni || { intestazioni: [], righe: [] };
+        ultimeIscrizioniAggiornate = Date.now();
         document.getElementById('loginBox').classList.add('nascosto');
         document.getElementById('pannello').classList.remove('nascosto');
-        caricaCampi();
-        caricaPrivacyInterna();
-        caricaIscrizioni();
+        disegnaCampi();
+        disegnaTabellaIscrizioni();
       } else {
         document.getElementById('erroreLogin').textContent = 'Password errata.';
       }
@@ -513,6 +521,9 @@
       const campo = document.getElementById(id);
       if (campo) campo.value = '';
     });
+    filtroLucaAttivo = false;
+    const btnLuca = document.getElementById('btnFiltroLuca');
+    if (btnLuca) btnLuca.classList.remove('attivo-filtro');
     document.getElementById('tabCampi').classList.toggle('nascosto', nome !== 'campi');
     document.getElementById('tabIscrizioni').classList.toggle('nascosto', nome !== 'iscrizioni');
     document.getElementById('tabEmail').classList.toggle('nascosto', nome !== 'email');
@@ -857,8 +868,16 @@
     };
     document.getElementById('overlayModale').classList.remove('nascosto');
 
-    // Dati sempre freschi, cosi il riepilogo non mostra pratiche vecchie.
-    await Promise.all([caricaPratiche(), caricaBustePaga()]);
+    // Dati sempre freschi, cosi il riepilogo non mostra pratiche vecchie,
+    // in una sola chiamata combinata invece di due separate.
+    const risPratiche = await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'getSchedaPratiche', password })
+    });
+    const datiCombinati = await risPratiche.json();
+    ultimePratiche = datiCombinati.pratiche || { intestazioni: [], righe: [] };
+    ultimeBustePaga = datiCombinati.bustePaga || { intestazioni: [], righe: [] };
+    ultimeBustePagaAggiornate = Date.now();
 
     const iCognome = ultimePratiche.intestazioni.indexOf('Cognome');
     const iNome = ultimePratiche.intestazioni.indexOf('Nome');
@@ -1364,9 +1383,19 @@
   }
 
   async function caricaSchedaEmail() {
-    // Le quattro chiamate sono indipendenti tra loro, farle partire
-    // insieme invece che una dopo l'altra dimezza abbondantemente l'attesa.
-    await Promise.all([caricaIscrizioni(), caricaBustePaga(), caricaModelloEmail(), caricaPratiche()]);
+    // Una sola chiamata combinata, invece di quattro separate.
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'getSchedaEmail', password })
+    });
+    const data = await res.json();
+    ultimeIscrizioni = data.iscrizioni || { intestazioni: [], righe: [] };
+    ultimeIscrizioniAggiornate = Date.now();
+    ultimeBustePaga = data.bustePaga || { intestazioni: [], righe: [] };
+    ultimeBustePagaAggiornate = Date.now();
+    ultimePratiche = data.pratiche || { intestazioni: [], righe: [] };
+    document.getElementById('oggettoEmail').value = (data.modello && data.modello.oggetto) || '';
+    document.getElementById('corpoEmail').value = (data.modello && data.modello.corpo) || '';
     disegnaDestinatari();
   }
 
@@ -1517,7 +1546,15 @@
   // --- Invio mail massivo, tutta l'anagrafica ---
 
   async function caricaSchedaEmailMassivo() {
-    await Promise.all([caricaIscrizioni(), caricaModelloEmailMassivo()]);
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'getSchedaEmailMassivo', password })
+    });
+    const data = await res.json();
+    ultimeIscrizioni = data.iscrizioni || { intestazioni: [], righe: [] };
+    ultimeIscrizioniAggiornate = Date.now();
+    document.getElementById('oggettoEmailMassivo').value = (data.modello && data.modello.oggetto) || '';
+    document.getElementById('corpoEmailMassivo').value = (data.modello && data.modello.corpo) || '';
     disegnaDestinatariMassivo();
   }
 
@@ -1707,9 +1744,19 @@
   }
 
   async function caricaSchedaBustePaga() {
-    await Promise.all([caricaIscrizioni(), caricaBustePaga(), caricaPratiche()]);
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'getSchedaBustePaga', password })
+    });
+    const data = await res.json();
+    ultimeIscrizioni = data.iscrizioni || { intestazioni: [], righe: [] };
+    ultimeIscrizioniAggiornate = Date.now();
+    ultimeBustePaga = data.bustePaga || { intestazioni: [], righe: [] };
+    ultimeBustePagaAggiornate = Date.now();
+    ultimePratiche = data.pratiche || { intestazioni: [], righe: [] };
     popolaClientiNuovaBustaPaga();
     document.getElementById('annoNuovaBustaPaga').value = new Date().getFullYear();
+    disegnaTabellaBustePaga();
   }
 
   // Nel menu "Cliente" per aggiungere un anno da tracciare propone solo
@@ -1873,11 +1920,34 @@
 
   // --- Pratiche ---
 
+  // Mostra solo le pratiche dei tipi che Luca segue in esclusiva,
+  // configurati nell'ingranaggio. Resta acceso finche non lo spegni di
+  // nuovo, anche cambiando ricerca.
+  function toggleFiltroLuca() {
+    filtroLucaAttivo = !filtroLucaAttivo;
+    document.getElementById('btnFiltroLuca').classList.toggle('attivo-filtro', filtroLucaAttivo);
+    disegnaTabellaPratiche();
+  }
+
   async function caricaSchedaPratiche() {
-    // Anche le Buste paga, servono per calcolare lo stato vero del
-    // pagamento delle pratiche di tipo Colf e badanti.
-    await Promise.all([caricaIscrizioni(), caricaTipiPratica(), caricaPratiche(), caricaBustePaga()]);
+    // Una sola chiamata combinata, invece di quattro separate che
+    // finirebbero comunque in coda una dietro l'altra.
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'getSchedaPratiche', password })
+    });
+    const data = await res.json();
+    ultimeIscrizioni = data.iscrizioni || { intestazioni: [], righe: [] };
+    ultimeIscrizioniAggiornate = Date.now();
+    tipiPraticaCorrenti = data.tipiPratica || [];
+    tipiPraticaLucaCorrenti = data.tipiPraticaLuca || [];
+    document.getElementById('tipoNuovaPratica').innerHTML =
+      tipiPraticaCorrenti.map(t => `<option value="${t}">${t}</option>`).join('');
+    ultimePratiche = data.pratiche || { intestazioni: [], righe: [] };
+    ultimeBustePaga = data.bustePaga || { intestazioni: [], righe: [] };
+    ultimeBustePagaAggiornate = Date.now();
     popolaClientiPratica();
+    disegnaTabellaPratiche();
     if (!document.getElementById('dataAperturaNuovaPratica').value) {
       document.getElementById('dataAperturaNuovaPratica').value = new Date().toISOString().slice(0, 10);
     }
@@ -1927,8 +1997,12 @@
     corpo.innerHTML = `
       <div class="campo-modale">
         <label>Tipi di pratica selezionabili</label>
-        <p class="sottonota" style="margin:4px 0 8px">Un tipo per riga, es. 730, ISEE, RED, Successione.</p>
-        <textarea id="elencoTipiPraticaModale" rows="6" style="width:100%;box-sizing:border-box"></textarea>
+        <p class="sottonota" style="margin:4px 0 8px">Usati nel menu "Tipo di pratica" quando aggiungi una pratica nuova.</p>
+        <div id="listaTipiPraticaModale"></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <input type="text" id="nuovoTipoPraticaInput" placeholder="Nuovo tipo, es. Successione" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();aggiungiTipoPraticaLista();}">
+          <button class="secondario" onclick="aggiungiTipoPraticaLista()">Aggiungi</button>
+        </div>
       </div>
       <hr class="divisore" style="margin:20px 0">
       <div class="campo-modale">
@@ -1951,7 +2025,12 @@
       </div>
       <span id="esitoImpostazioni"></span>
     `;
-    document.getElementById('elencoTipiPraticaModale').value = tipiPraticaCorrenti.join('\n');
+    // Copia di lavoro: le modifiche (aggiungi/rimuovi) restano locali
+    // finche non premi "Salva tipi di pratica", cosi Annulla non lascia
+    // cambiamenti a meta.
+    tipiPraticaModaleTemp = [...tipiPraticaCorrenti];
+    tipiPraticaLucaModaleTemp = [...tipiPraticaLucaCorrenti];
+    disegnaListaTipiPratica();
     caricaImportoTessera();
     const btn = document.getElementById('btnConfermaModale');
     btn.textContent = 'Salva tipi di pratica';
@@ -1960,17 +2039,76 @@
     document.getElementById('overlayModale').classList.remove('nascosto');
   }
 
+  let tipiPraticaModaleTemp = [];
+  let tipiPraticaLucaModaleTemp = [];
+
+  function disegnaListaTipiPratica() {
+    const div = document.getElementById('listaTipiPraticaModale');
+    if (!div) return;
+    if (tipiPraticaModaleTemp.length === 0) {
+      div.innerHTML = '<p class="nota">Nessun tipo ancora, aggiungine uno qui sotto.</p>';
+      return;
+    }
+    div.innerHTML = tipiPraticaModaleTemp.map((t, i) => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);gap:10px">
+        <span>${t}</span>
+        <span style="display:flex;align-items:center;gap:12px">
+          <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);cursor:pointer">
+            <input type="checkbox" ${tipiPraticaLucaModaleTemp.includes(t) ? 'checked' : ''} onchange="toggleTipoLuca(${i}, this.checked)">
+            Luca
+          </label>
+          <button class="pericolo" style="padding:3px 10px;font-size:12px" onclick="rimuoviTipoPraticaLista(${i})">Rimuovi</button>
+        </span>
+      </div>
+    `).join('');
+  }
+
+  // Segna o toglie un tipo di pratica dall'elenco di quelli che Luca
+  // segue in esclusiva, usato poi per il filtro nella scheda Pratiche.
+  function toggleTipoLuca(indice, attivo) {
+    const tipo = tipiPraticaModaleTemp[indice];
+    if (attivo) {
+      if (!tipiPraticaLucaModaleTemp.includes(tipo)) tipiPraticaLucaModaleTemp.push(tipo);
+    } else {
+      tipiPraticaLucaModaleTemp = tipiPraticaLucaModaleTemp.filter(t => t !== tipo);
+    }
+  }
+
+  function aggiungiTipoPraticaLista() {
+    const input = document.getElementById('nuovoTipoPraticaInput');
+    const valore = input.value.trim();
+    if (!valore) return;
+    if (tipiPraticaModaleTemp.some(t => t.toLowerCase() === valore.toLowerCase())) {
+      input.value = '';
+      return;
+    }
+    tipiPraticaModaleTemp.push(valore);
+    input.value = '';
+    disegnaListaTipiPratica();
+    input.focus();
+  }
+
+  function rimuoviTipoPraticaLista(indice) {
+    // Se il tipo tolto era segnato come "Luca", lo toglie anche da li,
+    // cosi non resta un riferimento a un tipo che non esiste piu.
+    const tipo = tipiPraticaModaleTemp[indice];
+    tipiPraticaLucaModaleTemp = tipiPraticaLucaModaleTemp.filter(t => t !== tipo);
+    tipiPraticaModaleTemp.splice(indice, 1);
+    disegnaListaTipiPratica();
+  }
+
   async function salvaImpostazioni() {
-    const testo = document.getElementById('elencoTipiPraticaModale').value;
-    const tipi = testo.split('\n').map(t => t.trim()).filter(Boolean);
+    const tipi = tipiPraticaModaleTemp;
+    const tipiLuca = tipiPraticaLucaModaleTemp;
     const esito = document.getElementById('esitoImpostazioni');
     const res = await fetch(BACKEND_URL, {
       method: 'POST',
-      body: JSON.stringify({ action: 'saveTipiPratica', password, tipi })
+      body: JSON.stringify({ action: 'saveTipiPratica', password, tipi, tipiLuca })
     });
     const data = await res.json();
     if (data.ok) {
       tipiPraticaCorrenti = tipi;
+      tipiPraticaLucaCorrenti = tipiLuca;
       const selTipo = document.getElementById('tipoNuovaPratica');
       if (selTipo) selTipo.innerHTML = tipi.map(t => `<option value="${t}">${t}</option>`).join('');
       chiudiModale();
@@ -2069,6 +2207,11 @@
       });
     }
 
+    if (filtroLucaAttivo) {
+      const tipiLucaMinuscoli = tipiPraticaLucaCorrenti.map(t => t.toLowerCase().trim());
+      righe = righe.filter(({ r }) => tipiLucaMinuscoli.includes(String(r[iTipo] || '').toLowerCase().trim()));
+    }
+
     righe.sort((a, b) => {
       const chiave = (x) => (x.r[iCognome] + ' ' + x.r[iNome]).toLowerCase();
       return chiave(a).localeCompare(chiave(b), 'it') || String(b.r[iDataApertura] || '').localeCompare(String(a.r[iDataApertura] || ''));
@@ -2097,10 +2240,16 @@
             const nonInRegola = clienteHaPagamentoNonInRegola(r[iCognome], r[iNome]);
             return `<span style="font-weight:600;color:${nonInRegola ? 'var(--red)' : 'var(--green)'}">${nonInRegola ? 'Da regolarizzare' : 'In regola'}</span>`;
           })()
-        : `<select onchange="aggiornaCellaPratica(${indiceOriginale}, 'Pagamento', this.value)">
-            <option value="Pagata" ${r[iPagamento] === 'Pagata' ? 'selected' : ''}>Pagata</option>
-            <option value="Gratuita con tessera" ${r[iPagamento] === 'Gratuita con tessera' ? 'selected' : ''}>Gratuita con tessera</option>
-          </select>`;
+        : (() => {
+            // "Pagata" resta riconosciuto come "Pagato" per compatibilita
+            // con le pratiche create prima di questo cambio.
+            const valorePagamento = r[iPagamento] === 'Pagata' ? 'Pagato' : r[iPagamento];
+            return `<select onchange="aggiornaCellaPratica(${indiceOriginale}, 'Pagamento', this.value)">
+              <option value="Pagamento" ${valorePagamento === 'Pagamento' ? 'selected' : ''}>Pagamento</option>
+              <option value="Pagato" ${valorePagamento === 'Pagato' ? 'selected' : ''}>Pagato</option>
+              <option value="Gratuita con tessera" ${valorePagamento === 'Gratuita con tessera' ? 'selected' : ''}>Gratuita con tessera</option>
+            </select>`;
+          })();
       html += `<tr>
         <td class="cognome-cliccabile" title="Click per aprire l'anagrafica" data-cognome="${escapeAttr(r[iCognome])}" data-nome="${escapeAttr(r[iNome])}" onclick="apriAnagraficaDaPratica(this)">${r[iCognome] || ''} ${r[iNome] || ''}</td>
         <td>${r[iTipo] || ''}</td>
@@ -2113,7 +2262,7 @@
         </td>
         <td>${cellaPagamento}</td>
         <td><input type="date" value="${r[iDataChiusura] ? String(r[iDataChiusura]).slice(0, 10) : ''}" onchange="aggiornaCellaPratica(${indiceOriginale}, 'DataChiusura', this.value)" style="width:140px"></td>
-        <td><input type="text" value="${(r[iNota] || '').toString().replace(/"/g, '&quot;')}" onchange="aggiornaCellaPratica(${indiceOriginale}, 'Nota', this.value)" style="width:160px"></td>
+        <td><input type="text" value="${(r[iNota] || '').toString().replace(/"/g, '&quot;')}" onchange="aggiornaCellaPratica(${indiceOriginale}, 'Nota', this.value)" style="width:210px;font-size:12.5px"></td>
         <td class="col-azioni"><button class="pericolo" onclick="eliminaPratica(${indiceOriginale})">Elimina</button></td>
       </tr>`;
     });
