@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 77 -->
+<!-- rev. 78 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -193,7 +193,7 @@
 </head>
 <body>
 <div id="loaderGlobale" class="loader-overlay nascosto"><div class="spinner"></div></div>
-<div class="versione">Designed by Gianluca Cioè · rev. 77</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 78</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -328,8 +328,6 @@
       <button class="secondario" onclick="caricaSchedaPratiche(true)">Aggiorna elenco</button>
       <button onclick="scaricaExcelPratiche()">Scarica Excel</button>
       <button id="btnFiltroLuca" class="secondario" onclick="toggleFiltroLuca()">Solo servizi di Luca</button>
-      <button class="secondario" onclick="creaRigheBustaPagaMancanti()" title="Da usare una volta sola">Aggiungi a Buste paga chi manca ancora</button>
-      <span id="esitoMigrazioneBustaPaga"></span>
       <label style="margin-top:14px">Cerca, per cliente, tipo, fase o qualunque altro dato<br>
         <input type="text" id="cercaPratiche" placeholder="Scrivi per filtrare..." oninput="disegnaTabellaPratiche()" style="max-width:480px">
       </label>
@@ -2217,26 +2215,6 @@
       mostraEsitoTemporaneo(esito, ' Password cambiata.');
     } else {
       mostraEsitoTemporaneo(esito, ' ' + (data.errore || 'Errore, riprova.'));
-    }
-  }
-
-  // Una tantum: sistema subito i casi come Galasso, che hanno gia una
-  // pratica Colf e badanti ma non erano mai stati aggiunti a Buste
-  // paga a parte. Da usare una volta, poi non serve piu.
-  async function creaRigheBustaPagaMancanti() {
-    if (!confirm('Aggiungere a Buste paga tutti i clienti con una pratica Colf e badanti che ancora non ci sono? Chi c\'e gia non viene duplicato.')) return;
-    const esito = document.getElementById('esitoMigrazioneBustaPaga');
-    esito.textContent = ' In corso...';
-    const res = await fetch(BACKEND_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'creaRigheBustaPagaMancantiDaPratiche', password })
-    });
-    const data = await res.json();
-    if (data.ok) {
-      esito.textContent = ` Aggiunti ${data.creati} clienti a Buste paga.`;
-      await caricaSchedaBustePaga(true);
-    } else {
-      esito.textContent = ' ' + (data.errore || 'Errore, riprova.');
     }
   }
 
