@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 73 -->
+<!-- rev. 75 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -98,6 +98,9 @@
   .riga-scaduta td { background: #c96b8f !important; color: #fff; }
   .riga-scaduta td.col-azioni { background: #c96b8f !important; }
   .riga-scaduta:hover td { background: #b85c7e !important; }
+  .riga-conclusa td { background: #4e6aa9 !important; color: #fff; }
+  .riga-conclusa td.col-azioni { background: #4e6aa9 !important; }
+  .riga-conclusa:hover td { background: #3f5a91 !important; }
   .azioni-verticali { display: flex; flex-direction: column; gap: 3px; padding: 2px 0; }
   .azioni-verticali button { padding: 3px 7px; font-size: 10.5px; width: 100%; white-space: nowrap; }
   .cognome-cliccabile { cursor: pointer; text-decoration: underline dotted; text-decoration-color: var(--line); }
@@ -190,7 +193,7 @@
 </head>
 <body>
 <div id="loaderGlobale" class="loader-overlay nascosto"><div class="spinner"></div></div>
-<div class="versione">Designed by Gianluca Cioè · rev. 73</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 75</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -441,11 +444,18 @@
   function applicaOrdinamento(righe, tabella) {
     const stato = statoOrdinamento[tabella];
     if (!stato || stato.colonna == null) return righe;
+    // Un numero vero solo se TUTTA la stringa e un numero, non solo
+    // l'inizio: altrimenti una data come "2026-01-10" verrebbe letta da
+    // parseFloat come 2026 e basta, perdendo mese e giorno, e tutte le
+    // date dello stesso anno finirebbero per sembrare uguali
+    // nell'ordinamento. Il formato AAAA-MM-GG ordina gia correttamente
+    // anche come semplice testo, quindi le date passano di li.
+    const soloNumero = /^-?\d+(\.\d+)?$/;
     righe.sort((a, b) => {
-      const va = a.r[stato.colonna], vb = b.r[stato.colonna];
-      const na = parseFloat(va), nb = parseFloat(vb);
-      const numerici = va !== '' && vb !== '' && va != null && vb != null && !isNaN(na) && !isNaN(nb);
-      const cmp = numerici ? (na - nb) : String(va ?? '').toLowerCase().localeCompare(String(vb ?? '').toLowerCase(), 'it');
+      const sa = String(a.r[stato.colonna] ?? '').trim();
+      const sb = String(b.r[stato.colonna] ?? '').trim();
+      const numerici = sa !== '' && sb !== '' && soloNumero.test(sa) && soloNumero.test(sb);
+      const cmp = numerici ? (parseFloat(sa) - parseFloat(sb)) : sa.toLowerCase().localeCompare(sb.toLowerCase(), 'it');
       return cmp * stato.direzione;
     });
     return righe;
@@ -2245,6 +2255,11 @@
     }
 
     righe.sort((a, b) => {
+      // Prima tutte le attive, in ordine alfabetico, poi tutte le
+      // concluse in fondo, alfabetiche anche loro.
+      const conclusaA = String(a.r[iFase] || '').toLowerCase().trim() === 'conclusa' ? 1 : 0;
+      const conclusaB = String(b.r[iFase] || '').toLowerCase().trim() === 'conclusa' ? 1 : 0;
+      if (conclusaA !== conclusaB) return conclusaA - conclusaB;
       const chiave = (x) => (x.r[iCognome] + ' ' + x.r[iNome]).toLowerCase();
       return chiave(a).localeCompare(chiave(b), 'it') || String(b.r[iDataApertura] || '').localeCompare(String(a.r[iDataApertura] || ''));
     });
@@ -2289,7 +2304,8 @@
       const cellaPagato = isColf
         ? '<span class="nota">—</span>'
         : `<input type="checkbox" ${iPagato >= 0 && String(r[iPagato] || '').trim().toLowerCase() === 'si' ? 'checked' : ''} onchange="aggiornaCellaPratica(${indiceOriginale}, 'Pagato', this.checked ? 'Si' : 'No')" style="width:17px;height:17px;accent-color:var(--blue)">`;
-      html += `<tr>
+      const conclusa = String(r[iFase] || '').toLowerCase().trim() === 'conclusa';
+      html += `<tr class="${conclusa ? 'riga-conclusa' : ''}">
         <td class="cognome-cliccabile" title="Click per aprire l'anagrafica" data-cognome="${escapeAttr(r[iCognome])}" data-nome="${escapeAttr(r[iNome])}" onclick="apriAnagraficaDaPratica(this)">${r[iCognome] || ''} ${r[iNome] || ''}</td>
         <td>${r[iTipo] || ''}</td>
         <td>${formattaData(r[iDataApertura])}</td>
