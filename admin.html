@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 79 -->
+<!-- rev. 80 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -185,6 +185,7 @@
   #loginBox { max-width: 280px; margin: 0 auto; text-align: center; }
   #loginBox input { width: 100%; margin-top: 6px; margin-bottom: 14px; }
   .nota { font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .riga-ricerca { display: block; margin: 22px 0 16px; }
   code {
     background: var(--paper); border: 1px solid var(--line); padding: 1px 5px;
     border-radius: 2px; font-size: 12px;
@@ -193,7 +194,7 @@
 </head>
 <body>
 <div id="loaderGlobale" class="loader-overlay nascosto"><div class="spinner"></div></div>
-<div class="versione">Designed by Gianluca Cioè · rev. 79</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 80</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -234,7 +235,7 @@
       <button onclick="caricaIscrizioni(true)">Aggiorna elenco</button>
       <button onclick="scaricaExcel()">Scarica Excel</button>
       <p class="nota" style="margin-top:10px">Alcune colonne meno usate sono nascoste dalla tabella ma restano cercabili. Click sul cognome per il riepilogo delle pratiche, doppio click per modificare l'anagrafica.</p>
-      <label style="margin-top:14px">Cerca, per cognome, nome, data di nascita o qualunque altro dato<br>
+      <label class="riga-ricerca">Cerca, per cognome, nome, data di nascita o qualunque altro dato<br>
         <input type="text" id="cercaIscrizioni" placeholder="Scrivi per filtrare..." oninput="disegnaTabellaIscrizioni()" style="max-width:480px">
       </label>
       <div id="tabellaIscrizioni"></div>
@@ -282,7 +283,7 @@
       <button class="secondario" onclick="salvaModelloEmailMassivoTesto()">Salva oggetto e testo per la prossima volta</button>
       <span id="esitoModelloEmailMassivo"></span>
       <br><br>
-      <label>Cerca, per cliente o email<br>
+      <label class="riga-ricerca">Cerca, per cliente o email<br>
         <input type="text" id="cercaEmailMassivo" placeholder="Scrivi per filtrare..." oninput="disegnaDestinatariMassivo()" style="max-width:480px">
       </label>
       <div id="elencoDestinatariMassivo"></div>
@@ -328,7 +329,7 @@
       <button class="secondario" onclick="caricaSchedaPratiche(true)">Aggiorna elenco</button>
       <button onclick="scaricaExcelPratiche()">Scarica Excel</button>
       <button id="btnFiltroLuca" class="secondario" onclick="toggleFiltroLuca()">Solo servizi di Luca</button>
-      <label style="margin-top:14px">Cerca, per cliente, tipo, fase o qualunque altro dato<br>
+      <label class="riga-ricerca">Cerca, per cliente, tipo, fase o qualunque altro dato<br>
         <input type="text" id="cercaPratiche" placeholder="Scrivi per filtrare..." oninput="disegnaTabellaPratiche()" style="max-width:480px">
       </label>
       <div id="tabellaPratiche" style="margin-top:14px"></div>
@@ -358,7 +359,7 @@
 
       <br>
       <button class="secondario" onclick="caricaSchedaBustePaga(true)">Aggiorna elenco</button>
-      <label style="margin-top:14px">Cerca, per cliente, dipendente o anno<br>
+      <label class="riga-ricerca">Cerca, per cliente, dipendente o anno<br>
         <input type="text" id="cercaBustePaga" placeholder="Scrivi per filtrare..." oninput="disegnaTabellaBustePaga()" style="max-width:340px">
       </label>
       <div id="tabellaBustePaga" style="margin-top:14px"></div>
