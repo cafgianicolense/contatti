@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 81 -->
+<!-- rev. 83 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -194,7 +194,7 @@
 </head>
 <body>
 <div id="loaderGlobale" class="loader-overlay nascosto"><div class="spinner"></div></div>
-<div class="versione">Designed by Gianluca Cioè · rev. 81</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 83</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -320,7 +320,7 @@
           <label id="campoDipendentePratica" class="nascosto">Dipendente
             <input type="text" id="dipendenteNuovaPratica" placeholder="Inserisci cognome e nome dipendente" style="min-width:160px">
           </label>
-          <button onclick="aggiungiPratica()">Aggiungi pratica</button>
+          <button id="btnAggiungiPratica" onclick="aggiungiPratica()">Aggiungi pratica</button>
         </div>
         <span id="esitoNuovaPratica"></span>
       </div>
@@ -1468,11 +1468,7 @@
       String(r[iNome] || '').toLowerCase().trim() === String(nome || '').toLowerCase().trim()
     );
     if (righeCliente.length === 0) return 'non-tracciato';
-    const nonInRegola = righeCliente.some(r => {
-      const mese = r[iPagatoMese], anno = r[iPagatoAnno];
-      if (!mese || !anno) return true;
-      return pagamentoScaduto(mese, anno);
-    });
+    const nonInRegola = righeCliente.some(r => pagamentoNonRegolare(r[iPagatoMese], r[iPagatoAnno]));
     return nonInRegola ? 'da-regolarizzare' : 'in-regola';
   }
 
@@ -1799,6 +1795,17 @@
     return anno < annoCorrente || (anno === annoCorrente && mesePagato < meseCorrente);
   }
 
+  // Vero se la riga va segnalata come da regolarizzare: sia quando il
+  // "Pagato fino a" e scaduto, sia quando non e mai stato compilato,
+  // che non e "in regola" per difetto, e semplicemente non ancora
+  // segnato come pagato (stesso bug del caso Galasso Piero, qui usato
+  // anche per colorare la riga in rosa, non solo per il testo dello
+  // stato nel riepilogo pratiche).
+  function pagamentoNonRegolare(meseTesto, annoTesto) {
+    if (!meseTesto || !annoTesto) return true;
+    return pagamentoScaduto(meseTesto, annoTesto);
+  }
+
   async function caricaSchedaBustePaga(forza) {
     if (!forza && ultimaSchedaBustePagaAggiornata && Date.now() - ultimaSchedaBustePagaAggiornata < DURATA_CACHE_MS) {
       popolaClientiNuovaBustaPaga();
@@ -1924,7 +1931,7 @@
 
     righe.forEach(({ r, indiceOriginale }) => {
       const dipendente = iDipendente >= 0 ? (r[iDipendente] || '') : '';
-      const scaduto = pagamentoScaduto(r[iPagatoMese], r[iPagatoAnno]);
+      const scaduto = pagamentoNonRegolare(r[iPagatoMese], r[iPagatoAnno]);
       html += `<tr class="${scaduto ? 'riga-scaduta' : ''}"><td>${r[iCognome]} ${r[iNome]}</td><td>
         <input type="text" value="${dipendente.toString().replace(/"/g,'&quot;')}"
           onchange="aggiornaCellaBustaPaga(${indiceOriginale}, 'Dipendente', this.value)"
@@ -2242,7 +2249,14 @@
     if (!isColf) document.getElementById('dipendenteNuovaPratica').value = '';
   }
 
-  async function aggiungiPratica() {
+  // Doppio livello di protezione dai doppioni. Primo livello: il
+  // pulsante si disabilita subito, per non lasciare la finestra a un
+  // secondo clic veloce mentre la prima richiesta e ancora in corso.
+  // Secondo livello, rete di sicurezza lato backend: se esiste gia una
+  // pratica identica (stesso cliente, tipo e data di apertura), non
+  // blocca da sola, chiede prima conferma, cosi una pratica dello
+  // stesso tipo voluta davvero due volte resta comunque possibile.
+  async function aggiungiPratica(forza) {
     const valore = document.getElementById('clienteNuovaPratica').value;
     const tipo = document.getElementById('tipoNuovaPratica').value;
     const dataApertura = document.getElementById('dataAperturaNuovaPratica').value;
@@ -2253,23 +2267,40 @@
       return;
     }
     const [cognome, nome, codiceFiscale] = valore.split('|||');
-    const res = await fetch(BACKEND_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'aggiungiPratica', password, cognome, nome, codiceFiscale, tipo, dataApertura, dipendente })
-    });
-    const data = await res.json();
-    if (data.ok) {
-      mostraEsitoTemporaneo(esito, data.bustaPagaCreata ? ' Aggiunta, e aggiunta anche a Buste paga.' : ' Aggiunta.');
-      // Svuota il riquadro, pronto per la pratica successiva, invece di
-      // lasciare cliente e tipo dell'ultima aggiunta ancora selezionati.
-      document.getElementById('clienteNuovaPratica').selectedIndex = 0;
-      document.getElementById('tipoNuovaPratica').selectedIndex = 0;
-      document.getElementById('dataAperturaNuovaPratica').value = new Date().toISOString().slice(0, 10);
-      document.getElementById('dipendenteNuovaPratica').value = '';
-      aggiornaCampoDipendentePratica();
-      await caricaPratiche();
-    } else {
-      mostraEsitoTemporaneo(esito, ' Errore, riprova.');
+    const btn = document.getElementById('btnAggiungiPratica');
+    const testoOriginale = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Aggiungo...';
+    try {
+      const res = await fetch(BACKEND_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'aggiungiPratica', password, cognome, nome, codiceFiscale, tipo, dataApertura, dipendente, forza: !!forza })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        mostraEsitoTemporaneo(esito, data.bustaPagaCreata ? ' Aggiunta, e aggiunta anche a Buste paga.' : ' Aggiunta.');
+        // Svuota il riquadro, pronto per la pratica successiva, invece di
+        // lasciare cliente e tipo dell'ultima aggiunta ancora selezionati.
+        document.getElementById('clienteNuovaPratica').selectedIndex = 0;
+        document.getElementById('tipoNuovaPratica').selectedIndex = 0;
+        document.getElementById('dataAperturaNuovaPratica').value = new Date().toISOString().slice(0, 10);
+        document.getElementById('dipendenteNuovaPratica').value = '';
+        aggiornaCampoDipendentePratica();
+        await caricaPratiche();
+      } else if (data.possibileDoppione) {
+        if (confirm('Esiste gia una pratica per questo cliente, con lo stesso tipo e la stessa data di apertura. Aggiungerla comunque?')) {
+          btn.disabled = false;
+          btn.textContent = testoOriginale;
+          await aggiungiPratica(true);
+          return;
+        }
+        esito.textContent = ' Aggiunta annullata.';
+      } else {
+        mostraEsitoTemporaneo(esito, ' Errore, riprova.');
+      }
+    } finally {
+      btn.disabled = false;
+      btn.textContent = testoOriginale;
     }
   }
 
@@ -2365,14 +2396,14 @@
         <td>${r[iTipo] || ''}</td>
         <td>${formattaData(r[iDataApertura])}</td>
         <td>
-          <select onchange="aggiornaCellaPratica(${indiceOriginale}, 'Fase', this.value)">
+          <select onchange="cambiaFasePratica(${indiceOriginale}, this)">
             <option value="Attiva" ${r[iFase] === 'Attiva' ? 'selected' : ''}>Attiva</option>
             <option value="Conclusa" ${r[iFase] === 'Conclusa' ? 'selected' : ''}>Conclusa</option>
           </select>
         </td>
         <td>${cellaPagamento}</td>
         <td style="text-align:center">${cellaPagato}</td>
-        <td><input type="date" value="${r[iDataChiusura] ? String(r[iDataChiusura]).slice(0, 10) : ''}" onchange="aggiornaCellaPratica(${indiceOriginale}, 'DataChiusura', this.value)" style="width:140px"></td>
+        <td><input type="date" value="${r[iDataChiusura] ? String(r[iDataChiusura]).slice(0, 10) : ''}" onchange="cambiaDataChiusura(${indiceOriginale}, this)" style="width:140px"></td>
         <td><input type="text" value="${(r[iNota] || '').toString().replace(/"/g, '&quot;')}" onchange="aggiornaCellaPratica(${indiceOriginale}, 'Nota', this.value)" style="width:280px;font-size:11.5px"></td>
         <td class="col-azioni"><button class="pericolo" onclick="eliminaPratica(${indiceOriginale})">Elimina</button></td>
       </tr>`;
@@ -2382,25 +2413,75 @@
     collegaScrollDoppio('pratiche');
   }
 
-  // Se la Fase passa a Conclusa e manca ancora la Data di chiusura, la
-  // riempie da sola con la data di oggi, cosi non tocca ricordarsene.
+  // Fase e DataChiusura sono legate a doppio filo: una pratica Conclusa
+  // ha sempre una data di chiusura, e una data di chiusura implica
+  // sempre Fase Conclusa, mai l'una senza l'altra. Impostare uno dei
+  // due per la prima volta chiede conferma e imposta anche l'altro, se
+  // annulli la conferma il campo appena toccato torna come prima senza
+  // salvare niente. Il percorso inverso, cioe togliere la data o
+  // rimettere Attiva, e reversibile in automatico, senza una seconda
+  // conferma, proprio per non essere ripetitivo nel disfare quello che
+  // si era appena confermato.
+  async function cambiaFasePratica(indiceRiga, select) {
+    const riga = ultimePratiche.righe[indiceRiga];
+    const iDataChiusura = ultimePratiche.intestazioni.indexOf('DataChiusura');
+    const dataChiusuraAttuale = iDataChiusura >= 0 ? riga[iDataChiusura] : '';
+    const nuovaFase = select.value;
+
+    if (nuovaFase === 'Conclusa' && !dataChiusuraAttuale) {
+      if (!confirm('Impostando la pratica come Conclusa, la data di chiusura diventa oggi. Confermi?')) {
+        select.value = 'Attiva';
+        return;
+      }
+      const oggi = new Date().toISOString().slice(0, 10);
+      await aggiornaCellaPratica(indiceRiga, 'Fase', 'Conclusa');
+      await aggiornaCellaPratica(indiceRiga, 'DataChiusura', oggi);
+      await caricaPratiche();
+      return;
+    }
+
+    if (nuovaFase === 'Attiva' && dataChiusuraAttuale) {
+      await aggiornaCellaPratica(indiceRiga, 'Fase', 'Attiva');
+      await aggiornaCellaPratica(indiceRiga, 'DataChiusura', '');
+      await caricaPratiche();
+      return;
+    }
+
+    await aggiornaCellaPratica(indiceRiga, 'Fase', nuovaFase);
+  }
+
+  async function cambiaDataChiusura(indiceRiga, input) {
+    const riga = ultimePratiche.righe[indiceRiga];
+    const iFase = ultimePratiche.intestazioni.indexOf('Fase');
+    const faseAttuale = iFase >= 0 ? riga[iFase] : '';
+    const nuovaData = input.value;
+
+    if (nuovaData && faseAttuale !== 'Conclusa') {
+      if (!confirm('Impostando una data di chiusura, la pratica diventa Conclusa. Confermi?')) {
+        input.value = '';
+        return;
+      }
+      await aggiornaCellaPratica(indiceRiga, 'DataChiusura', nuovaData);
+      await aggiornaCellaPratica(indiceRiga, 'Fase', 'Conclusa');
+      await caricaPratiche();
+      return;
+    }
+
+    if (!nuovaData && faseAttuale === 'Conclusa') {
+      await aggiornaCellaPratica(indiceRiga, 'DataChiusura', '');
+      await aggiornaCellaPratica(indiceRiga, 'Fase', 'Attiva');
+      await caricaPratiche();
+      return;
+    }
+
+    await aggiornaCellaPratica(indiceRiga, 'DataChiusura', nuovaData);
+  }
+
   async function aggiornaCellaPratica(indiceRiga, colonna, valore) {
     await fetch(BACKEND_URL, {
       method: 'POST',
       body: JSON.stringify({ action: 'aggiornaCellaPratica', password, indiceRiga, colonna, valore })
     });
-    if (colonna === 'Fase' && valore === 'Conclusa') {
-      const riga = ultimePratiche.righe[indiceRiga];
-      const iDataChiusura = ultimePratiche.intestazioni.indexOf('DataChiusura');
-      if (iDataChiusura >= 0 && !riga[iDataChiusura]) {
-        const oggi = new Date().toISOString().slice(0, 10);
-        await fetch(BACKEND_URL, {
-          method: 'POST',
-          body: JSON.stringify({ action: 'aggiornaCellaPratica', password, indiceRiga, colonna: 'DataChiusura', valore: oggi })
-        });
-        await caricaPratiche();
-      }
-    }
   }
 
   async function eliminaPratica(indiceRiga) {
