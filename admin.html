@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 90 -->
+<!-- rev. 91 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -73,6 +73,10 @@
   button.attivo-filtro { background: var(--blue); }
   button.pericolo { background: var(--red); }
   button.pericolo:hover { background: var(--red-dark); }
+  button.invia-mandato { background: #d99494; }
+  button.invia-mandato:hover { background: #c97e7e; }
+  button.invia-mandato.inviato { background: #82ac82; }
+  button.invia-mandato.inviato:hover { background: #6d9a6d; }
   table { width: 100%; border-collapse: collapse; margin-top: 14px; }
   th, td { border-bottom: 1px solid var(--line); padding: 6px 8px; font-size: 12.5px; text-align: left; white-space: nowrap; }
   th {
@@ -194,7 +198,7 @@
 </head>
 <body>
 <div id="loaderGlobale" class="loader-overlay nascosto"><div class="spinner"></div></div>
-<div class="versione">Designed by Gianluca Cioè · rev. 90</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 91</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -765,7 +769,8 @@
     // modificabili da Modifica anagrafica.
     const colonneNascoste = [
       'timestamp', 'sesso', 'comune di residenza', 'provincia di residenza',
-      'indirizzo', 'cap', 'oggetto della richiesta', 'osservazioni', 'consenso privacy', 'colf e badanti'
+      'indirizzo', 'cap', 'oggetto della richiesta', 'osservazioni', 'consenso privacy', 'colf e badanti',
+      'mandato inviato'
     ];
     // Un'etichetta scritta tutta di numeri, tipo "730", Google Sheets la
     // restituisce come numero, non testo: si forza sempre a stringa
@@ -789,6 +794,7 @@
     // senza che sia mai salvata da nessuna parte. Se e gia passata, la
     // riga viene evidenziata come le buste paga scadute.
     const idxTessera = intestazioni.findIndex(h => h && String(h).toLowerCase().includes('tessera'));
+    const idxMandatoInviato = intestazioni.findIndex(h => h && String(h).toLowerCase().trim() === 'mandato inviato');
 
     let righe = ultimeIscrizioni.righe.map((r, indiceOriginale) => ({ r, indiceOriginale }));
 
@@ -811,6 +817,7 @@
       (idxTessera >= 0 ? '<th>Scadenza tessera</th>' : '') + '<th class="col-azioni">Azioni</th></tr>';
     righe.forEach(({ r, indiceOriginale }) => {
       const scadenza = idxTessera >= 0 ? calcolaScadenzaTessera(r[idxTessera]) : null;
+      const mandatoGiaInviato = idxMandatoInviato >= 0 && !!r[idxMandatoInviato];
       html += `<tr class="${scadenza && scadenza.scaduta ? 'riga-scaduta' : ''}">` + colonneVisibili.map(i => {
         const valore = formattaCella(r[i], i) || '';
         if (i === idxCognome) {
@@ -823,6 +830,7 @@
           <div class="azioni-verticali">
             <button class="secondario" onclick="apriRiepilogoPratiche(${indiceOriginale})">Pratiche</button>
             <button class="secondario" onclick="stampaMandato(${indiceOriginale})">Stampa mandato</button>
+            <button class="invia-mandato${mandatoGiaInviato ? ' inviato' : ''}" onclick="inviaMandato(${indiceOriginale}, this)">${mandatoGiaInviato ? 'Mandato inviato' : 'Invia mandato'}</button>
             <button class="secondario" onclick="apriModificaAnagrafica(${indiceOriginale})">Modifica anagrafica</button>
             <button class="pericolo" onclick="apriElimina(${indiceOriginale})">Elimina</button>
           </div>
@@ -1181,7 +1189,7 @@
     return '';
   }
 
-  async function stampaMandato(i) {
+  async function costruisciHtmlMandato(i, perEmail) {
     if (!testoInformativaCorrente) await caricaPrivacyInterna();
     const riga = ultimeIscrizioni.righe[i];
     const cognome = trovaValore(riga, ['cognome']);
@@ -1204,6 +1212,13 @@
     const dataConsenso = timestampGrezzo ? (() => { const d = new Date(timestampGrezzo); return isNaN(d) ? timestampGrezzo : d.toLocaleString('it-IT'); })() : timestampGrezzo;
     const testoFooterPannello = document.querySelector('.versione')?.textContent || '';
     const revPannello = (testoFooterPannello.match(/rev\.\s*\d+/i) || [])[0] || '';
+    // Per la versione mandata via email non ha senso una riga da firmare a
+    // mano, visto che il documento firmato originale resta gia agli atti
+    // su carta: al suo posto una dicitura fissa, al posto della riga con
+    // "Firma" e lo spazio vuoto.
+    const rigaFirma = perEmail
+      ? '<span class="firmato-atti">Originale firmato agli atti</span>'
+      : '<span>Firma</span><span class="linea-firma"></span>';
 
     // Le righe restano vuote, le compili a penna dopo la stampa.
 
@@ -1264,6 +1279,7 @@
   .firme { display: table; width: 100%; table-layout: fixed; margin-top: 36px; page-break-inside: avoid; }
   .firma-riga { display: table-cell; width: 50%; vertical-align: bottom; font-size: 10.5px; color: #666; padding-right: 30px; }
   .firma-riga .linea-firma { display: inline-block; width: calc(100% - 45px); margin-left: 6px; border-bottom: 1px solid #333; padding-bottom: 1px; }
+  .firmato-atti { font-style: italic; color: #555; }
 
   .pagina-successiva { page-break-before: always; break-before: page; padding-top: 6px; }
   .rev-stampa { font-size: 8.5px; color: #aaa; text-align: right; margin-top: 4px; }
@@ -1302,7 +1318,7 @@
     conferisco mandato al <strong>CAF Gianicolense</strong> a rappresentarmi ed assistermi in merito alla pratica indicata in calce.</p>
     <div class="firme">
       <div class="firma-riga"><span>Roma,</span><span class="linea-firma">${oggi}</span></div>
-      <div class="firma-riga"><span>Firma</span><span class="linea-firma"></span></div>
+      <div class="firma-riga">${rigaFirma}</div>
     </div>
   </div>
 
@@ -1322,7 +1338,7 @@
       ${dataConsenso ? `<br><span style="color:#666;font-size:10.5px">(consenso espresso online il ${dataConsenso})</span>` : ''}</p>
       <div class="firme">
         <div class="firma-riga"><span>Roma,</span><span class="linea-firma">${oggi}</span></div>
-        <div class="firma-riga"><span>Firma</span><span class="linea-firma"></span></div>
+        <div class="firma-riga">${rigaFirma}</div>
       </div>
     </div>
   </div>
@@ -1344,9 +1360,45 @@
   <script>window.onload = () => window.print();<\/script>
 </body></html>`;
 
+    return html;
+  }
+
+  async function stampaMandato(i) {
+    const html = await costruisciHtmlMandato(i, false);
     const finestra = window.open('', '_blank');
     finestra.document.write(html);
     finestra.document.close();
+  }
+
+  // Manda il mandato via email come PDF allegato, con "Originale firmato
+  // agli atti" al posto delle righe da firmare. Il pulsante parte rosso
+  // sbiadito e diventa verde dopo l'invio, e lo stato resta salvato nel
+  // foglio, non solo nel pulsante, cosi non si perde ricaricando la pagina.
+  async function inviaMandato(i, btn) {
+    if (!confirm('Inviare il mandato via email a questo cliente?')) return;
+    const testoOriginale = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Invio...';
+    try {
+      const html = await costruisciHtmlMandato(i, true);
+      const res = await fetch(BACKEND_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'inviaMandato', password, indiceRiga: i, html })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        btn.textContent = 'Mandato inviato';
+        btn.classList.add('inviato');
+      } else {
+        alert(data.errore || 'Invio non riuscito, riprova.');
+        btn.textContent = testoOriginale;
+      }
+    } catch (err) {
+      alert('Invio non riuscito, riprova.');
+      btn.textContent = testoOriginale;
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   // Serve per inserire in sicurezza cognome e nome dentro un attributo
