@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 83 -->
+<!-- rev. 84 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -194,7 +194,7 @@
 </head>
 <body>
 <div id="loaderGlobale" class="loader-overlay nascosto"><div class="spinner"></div></div>
-<div class="versione">Designed by Gianluca Cioè · rev. 83</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 84</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -1201,17 +1201,7 @@
       if (!isNaN(d)) dataConsenso = d.toLocaleString('it-IT');
     }
 
-    const righeChecklist = [
-      'Documento identita dichiarante e codice fiscale',
-      'Composizione nucleo familiare',
-      'Dichiarazione dei redditi di tutti i soggetti del nucleo',
-      'Proprieta immobiliari (visura catastale/altro)',
-      'Patrimonio mobiliare: depositi e conti correnti (giacenza media x ISEE)',
-      'Polizze vita, certificati di deposito, ecc.',
-      'Autoveicoli ed altri beni durevoli',
-      'Certificato invalidita',
-      'Spese detraibili, oneri deducibili'
-    ];
+    // Le righe restano vuote, le compili a penna dopo la stampa.
 
     // Le tre righe di contatto/osservazioni compaiono solo se il dato e
     // stato effettivamente compilato nel form, altrimenti la riga non
@@ -1291,7 +1281,10 @@
     <h2>Documenti consegnati</h2>
     <table class="tabella-bordata">
       <tr><th>Documento</th><th>Visto</th></tr>
-      ${righeChecklist.map(voce => `<tr><td>${voce}</td><td></td></tr>`).join('')}
+      <tr><td>&nbsp;</td><td></td></tr>
+      <tr><td>&nbsp;</td><td></td></tr>
+      <tr><td>&nbsp;</td><td></td></tr>
+      <tr><td>&nbsp;</td><td></td></tr>
       <tr><td>&nbsp;</td><td></td></tr>
       <tr><td>&nbsp;</td><td></td></tr>
     </table>
