@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 86 -->
+<!-- rev. 87 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -194,7 +194,7 @@
 </head>
 <body>
 <div id="loaderGlobale" class="loader-overlay nascosto"><div class="spinner"></div></div>
-<div class="versione">Designed by Gianluca Cioè · rev. 86</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 87</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -1202,6 +1202,7 @@
     const oggi = new Date().toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
     const timestampGrezzo = trovaValore(riga, ['timestamp']);
     const dataConsenso = timestampGrezzo ? (() => { const d = new Date(timestampGrezzo); return isNaN(d) ? timestampGrezzo : d.toLocaleString('it-IT'); })() : timestampGrezzo;
+    const revPannello = (document.querySelector('.versione')?.textContent || '').trim();
 
     // Le righe restano vuote, le compili a penna dopo la stampa.
 
@@ -1235,7 +1236,7 @@
   .sottotitolo-stampa { font-size: 11.5px; color: #666; margin: 0; }
   .divisore-stampa { border: none; border-top: 1px solid #ccc; margin: 18px 0 0; }
 
-  .blocco { margin: 22px 0; }
+  .blocco { margin: 22px 0; page-break-inside: avoid; }
   .blocco h2 {
     font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: #555;
     margin: 0 0 8px; padding-bottom: 6px; border-bottom: 1px solid #ccc; font-weight: 700;
@@ -1259,11 +1260,12 @@
   .informativa-stampa { font-size: 10.5px; line-height: 1.6; text-align: justify; color: #333; }
   .informativa-stampa p { margin: 0 0 8px; }
 
-  .firme { display: flex; justify-content: space-between; gap: 50px; margin-top: 36px; }
-  .firma-riga { flex: 1; display: flex; align-items: flex-end; gap: 8px; font-size: 10.5px; color: #666; }
-  .firma-riga .linea-firma { flex: 1; border-bottom: 1px solid #333; height: 1px; margin-bottom: 2px; }
+  .firme { display: table; width: 100%; table-layout: fixed; margin-top: 36px; page-break-inside: avoid; }
+  .firma-riga { display: table-cell; width: 50%; vertical-align: bottom; font-size: 10.5px; color: #666; padding-right: 30px; }
+  .firma-riga .linea-firma { display: inline-block; width: calc(100% - 45px); margin-left: 6px; border-bottom: 1px solid #333; padding-bottom: 1px; }
 
   .pagina-successiva { page-break-before: always; break-before: page; padding-top: 6px; }
+  .rev-stampa { font-size: 8.5px; color: #aaa; text-align: right; margin-top: 4px; }
   @media print { body { margin: 10mm; } }
 </style></head>
 <body>
@@ -1298,7 +1300,7 @@
     nato/a a ${luogoNascita} il ${dataNascita}, codice fiscale <strong>${codiceFiscale}</strong>,
     conferisco mandato al <strong>CAF Gianicolense</strong> a rappresentarmi ed assistermi in merito alla pratica indicata in calce.</p>
     <div class="firme">
-      <div class="firma-riga"><span>Data</span><span class="linea-firma" style="height:auto;border-bottom:1px solid #333;padding-bottom:1px">${oggi}</span></div>
+      <div class="firma-riga"><span>Data</span><span class="linea-firma">${oggi}</span></div>
       <div class="firma-riga"><span>Firma</span><span class="linea-firma"></span></div>
     </div>
   </div>
@@ -1318,7 +1320,7 @@
       <strong>${consenso === 'Accettato' ? '\u2611 Presta il consenso &nbsp;&nbsp; \u2610 Nega il consenso' : '\u2610 Presta il consenso &nbsp;&nbsp; \u2611 Nega il consenso'}</strong>
       <br><span style="color:#666;font-size:10.5px">(consenso espresso online il ${dataConsenso || '_______________'})</span></p>
       <div class="firme">
-        <div class="firma-riga"><span>Roma,</span><span class="linea-firma" style="height:auto;border-bottom:1px solid #333;padding-bottom:1px">${oggi}</span></div>
+        <div class="firma-riga"><span>Roma,</span><span class="linea-firma">${oggi}</span></div>
         <div class="firma-riga"><span>Firma</span><span class="linea-firma"></span></div>
       </div>
     </div>
@@ -1331,10 +1333,12 @@
       <tr><td>&nbsp;</td><td>&nbsp;</td></tr>
     </table>
     <div class="firme">
-      <div style="flex:1"></div>
+      <div class="firma-riga"></div>
       <div class="firma-riga"><span>Firma</span><span class="linea-firma"></span></div>
     </div>
   </div>
+
+  <div class="rev-stampa">Modulo generato da pannello admin, ${revPannello || 'rev. n/d'}</div>
 
   <script>window.onload = () => window.print();<\/script>
 </body></html>`;
