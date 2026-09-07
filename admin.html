@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 85 -->
+<!-- rev. 86 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -194,7 +194,7 @@
 </head>
 <body>
 <div id="loaderGlobale" class="loader-overlay nascosto"><div class="spinner"></div></div>
-<div class="versione">Designed by Gianluca Cioè · rev. 85</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 86</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -1199,7 +1199,7 @@
     const richiesta = trovaValore(riga, ['oggetto della richiesta', 'richiesta', 'pratica']);
     const osservazioni = trovaValore(riga, ['osservazioni']);
     const consenso = trovaValore(riga, ['consenso privacy']) || 'Accettato';
-    const oggi = new Date().toLocaleDateString('it-IT');
+    const oggi = new Date().toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
     const timestampGrezzo = trovaValore(riga, ['timestamp']);
     const dataConsenso = timestampGrezzo ? (() => { const d = new Date(timestampGrezzo); return isNaN(d) ? timestampGrezzo : d.toLocaleString('it-IT'); })() : timestampGrezzo;
 
