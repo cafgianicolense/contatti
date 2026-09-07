@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 92 -->
+<!-- rev. 93 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -198,7 +198,7 @@
 </head>
 <body>
 <div id="loaderGlobale" class="loader-overlay nascosto"><div class="spinner"></div></div>
-<div class="versione">Designed by Gianluca Cioè · rev. 92</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 93</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -238,6 +238,7 @@
       <h2>Anagrafica raccolta</h2>
       <button onclick="caricaIscrizioni(true)">Aggiorna elenco</button>
       <button onclick="scaricaExcel()">Scarica Excel</button>
+      <button class="secondario" onclick="apriAggiungiCliente()">+ Aggiungi cliente</button>
       <p class="nota" style="margin-top:10px">Alcune colonne meno usate sono nascoste dalla tabella ma restano cercabili. Click sul cognome per il riepilogo delle pratiche, doppio click per modificare l'anagrafica.</p>
       <label class="riga-ricerca">Cerca, per cognome, nome, data di nascita o qualunque altro dato<br>
         <input type="text" id="cercaIscrizioni" placeholder="Scrivi per filtrare..." oninput="disegnaTabellaIscrizioni()" style="max-width:480px">
@@ -770,7 +771,7 @@
     const colonneNascoste = [
       'timestamp', 'sesso', 'comune di residenza', 'provincia di residenza',
       'indirizzo', 'cap', 'oggetto della richiesta', 'osservazioni', 'consenso privacy', 'colf e badanti',
-      'mandato inviato'
+      'mandato inviato', 'iscrizione admin'
     ];
     // Un'etichetta scritta tutta di numeri, tipo "730", Google Sheets la
     // restituisce come numero, non testo: si forza sempre a stringa
@@ -952,6 +953,101 @@
     btn.disabled = false;
   }
 
+  // Costruisce il singolo campo del modale anagrafico (Modifica anagrafica
+  // e Aggiungi cliente condividono la stessa logica), col tipo giusto in
+  // base a come e configurato in Gestione campi, valore di partenza incluso.
+  function creaCampoModale(intestazione, tipo, opzioni, valore) {
+    valore = valore || '';
+    const div = document.createElement('div');
+    div.className = 'campo-modale';
+    const chiaveCampo = intestazione.toLowerCase();
+
+    const creaInputData = () => {
+      div.innerHTML = `<label>${intestazione}</label><input type="date" data-colonna="${intestazione}">`;
+      div.querySelector('input').value = valore;
+      if (chiaveCampo.includes('tessera')) {
+        const nota = document.createElement('div');
+        nota.className = 'nota-cf';
+        nota.textContent = `Importo attuale: ${importoTesseraCorrente} €`;
+        div.appendChild(nota);
+        const input = div.querySelector('input');
+        const aggiornaNota = () => {
+          const s = calcolaScadenzaTessera(input.value);
+          nota.textContent = `Importo attuale: ${importoTesseraCorrente} €` +
+            (s ? ` — scadenza al ${s.testo}${s.scaduta ? ', gia scaduta' : ''}` : '');
+        };
+        input.addEventListener('input', aggiornaNota);
+        aggiornaNota();
+      }
+    };
+
+    if (chiaveCampo === 'consenso privacy') {
+      div.innerHTML = `<label>${intestazione}</label><select data-colonna="${intestazione}">
+        <option value="Accettato" ${valore === 'Accettato' ? 'selected' : ''}>Accettato</option>
+        <option value="Non accettato" ${valore === 'Non accettato' ? 'selected' : ''}>Non accettato</option>
+      </select>`;
+    } else if (tipo === 'checkbox') {
+      div.innerHTML = `<label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" data-colonna="${intestazione}" data-flag="true" style="width:17px;height:17px;accent-color:var(--blue)">
+        <span>${intestazione}</span>
+      </label>`;
+      div.querySelector('input').checked = (valore.trim().toLowerCase() === 'si');
+    } else if (tipo === 'data') {
+      creaInputData();
+    } else if (tipo === 'select' && opzioni) {
+      const opz = opzioni.split(',').map(o => o.trim()).filter(Boolean);
+      div.innerHTML = `<label>${intestazione}</label><select data-colonna="${intestazione}">
+        <option value="">-</option>
+        ${opz.map(o => `<option value="${o}" ${o === valore ? 'selected' : ''}>${o}</option>`).join('')}
+      </select>`;
+    } else if (tipo === 'numero') {
+      div.innerHTML = `<label>${intestazione}</label><input type="number" data-colonna="${intestazione}">`;
+      div.querySelector('input').value = valore;
+    } else if (tipo === 'textarea') {
+      div.innerHTML = `<label>${intestazione}</label><textarea data-colonna="${intestazione}" rows="3" style="width:100%;box-sizing:border-box"></textarea>`;
+      div.querySelector('textarea').value = valore;
+    } else if (!tipo && (valore.trim().toLowerCase() === 'si' || valore.trim().toLowerCase() === 'no')) {
+      div.innerHTML = `<label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" data-colonna="${intestazione}" data-flag="true" style="width:17px;height:17px;accent-color:var(--blue)">
+        <span>${intestazione}</span>
+      </label>`;
+      div.querySelector('input').checked = (valore.trim().toLowerCase() === 'si');
+    } else if (!tipo && chiaveCampo.includes('data')) {
+      creaInputData();
+    } else {
+      div.innerHTML = `<label>${intestazione}</label><input type="text" data-colonna="${intestazione}">`;
+      div.querySelector('input').value = valore;
+    }
+    return div;
+  }
+
+  // Elenco dei campi anagrafici da mostrare in Modifica anagrafica e in
+  // Aggiungi cliente, sempre nello stesso ordine: prima i campi fissi,
+  // poi quelli configurati in Gestione campi, senza doppioni.
+  const CAMPI_FISSI_MODALE = [
+    { etichetta: 'Cognome', tipo: 'testo' },
+    { etichetta: 'Nome', tipo: 'testo' },
+    { etichetta: 'Sesso', tipo: 'select', opzioni: 'M,F' },
+    { etichetta: 'Data di nascita', tipo: 'data' },
+    { etichetta: 'Comune di nascita', tipo: 'testo' },
+    { etichetta: 'Codice fiscale', tipo: 'testo' }
+  ];
+  function costruisciElencoCampiAnagrafica() {
+    const vistiChiave = new Set();
+    const elencoCampi = [];
+    function aggiungiCampoModale(etichetta, tipo, opzioni) {
+      const nome = String(etichetta || '').trim();
+      if (!nome) return;
+      const chiave = nome.toLowerCase();
+      if (vistiChiave.has(chiave)) return;
+      vistiChiave.add(chiave);
+      elencoCampi.push({ etichetta: nome, tipo: tipo || null, opzioni: opzioni || '' });
+    }
+    CAMPI_FISSI_MODALE.forEach(c => aggiungiCampoModale(c.etichetta, c.tipo, c.opzioni));
+    (campi || []).forEach(c => aggiungiCampoModale(c.etichetta, c.tipo, c.opzioni));
+    return elencoCampi;
+  }
+
   function apriModificaAnagrafica(indiceRiga) {
     indiceInModale = indiceRiga;
     const riga = ultimeIscrizioni.righe[indiceRiga];
@@ -968,107 +1064,13 @@
     // L'ordine e il tipo di ogni campo seguono sempre Gestione campi, mai
     // il valore attuale: un campo configurato come Si/No, tipo "730",
     // resta un flag anche se per qualche motivo il valore salvato non e
-    // esattamente "Si" o "No". Prima vengono i campi fissi
-    // dell'anagrafica, sempre nello stesso ordine, poi quelli configurati
-    // in Gestione campi nell'ordine scelto li, infine eventuali altre
-    // colonne rimaste sul foglio ma non piu configurate da nessuna parte,
-    // per le quali si usa un'euristica sul nome, come prima.
-    const CAMPI_FISSI_MODALE = [
-      { etichetta: 'Cognome', tipo: 'testo' },
-      { etichetta: 'Nome', tipo: 'testo' },
-      { etichetta: 'Sesso', tipo: 'select', opzioni: 'M,F' },
-      { etichetta: 'Data di nascita', tipo: 'data' },
-      { etichetta: 'Comune di nascita', tipo: 'testo' },
-      { etichetta: 'Codice fiscale', tipo: 'testo' }
-    ];
-    const vistiChiave = new Set();
-    const elencoCampi = [];
-    function aggiungiCampoModale(etichetta, tipo, opzioni) {
-      const nome = String(etichetta || '').trim();
-      if (!nome) return;
-      const chiave = nome.toLowerCase();
-      if (vistiChiave.has(chiave)) return;
-      vistiChiave.add(chiave);
-      elencoCampi.push({ etichetta: nome, tipo: tipo || null, opzioni: opzioni || '' });
-    }
-    CAMPI_FISSI_MODALE.forEach(c => aggiungiCampoModale(c.etichetta, c.tipo, c.opzioni));
-    (campi || []).forEach(c => aggiungiCampoModale(c.etichetta, c.tipo, c.opzioni));
-    // Niente altro: colonne come Timestamp o Consenso privacy restano
-    // sul foglio, gestite dal sistema stesso, ma non compaiono qui.
-    // Solo i dati anagrafici fissi e i campi configurati in Gestione
-    // campi, nell'ordine e col tipo che hai scelto li.
-
-    elencoCampi.forEach(({ etichetta: intestazione, tipo, opzioni }) => {
+    // esattamente "Si" o "No". Niente altro: colonne come Timestamp o
+    // Consenso privacy restano sul foglio, gestite dal sistema stesso, ma
+    // non compaiono qui.
+    costruisciElencoCampiAnagrafica().forEach(({ etichetta: intestazione, tipo, opzioni }) => {
       const idx = ultimeIscrizioni.intestazioni.findIndex(h => String(h) === intestazione);
-      const div = document.createElement('div');
-      div.className = 'campo-modale';
       const valore = idx >= 0 && riga[idx] != null ? String(riga[idx]) : '';
-      const chiaveCampo = intestazione.toLowerCase();
-
-      const creaInputData = () => {
-        div.innerHTML = `<label>${intestazione}</label><input type="date" data-colonna="${intestazione}">`;
-        div.querySelector('input').value = valore;
-        if (chiaveCampo.includes('tessera')) {
-          const nota = document.createElement('div');
-          nota.className = 'nota-cf';
-          nota.textContent = `Importo attuale: ${importoTesseraCorrente} €`;
-          div.appendChild(nota);
-          const input = div.querySelector('input');
-          const aggiornaNota = () => {
-            const s = calcolaScadenzaTessera(input.value);
-            nota.textContent = `Importo attuale: ${importoTesseraCorrente} €` +
-              (s ? ` — scadenza al ${s.testo}${s.scaduta ? ', gia scaduta' : ''}` : '');
-          };
-          input.addEventListener('input', aggiornaNota);
-          aggiornaNota();
-        }
-      };
-
-      if (chiaveCampo === 'consenso privacy') {
-        // Il valore e sempre uno tra due, non ha senso lasciarlo come
-        // testo libero o area di testo.
-        div.innerHTML = `<label>${intestazione}</label><select data-colonna="${intestazione}">
-          <option value="Accettato" ${valore === 'Accettato' ? 'selected' : ''}>Accettato</option>
-          <option value="Non accettato" ${valore === 'Non accettato' ? 'selected' : ''}>Non accettato</option>
-        </select>`;
-      } else if (tipo === 'checkbox') {
-        // Campo Si/No configurato come tale in Gestione campi: resta un
-        // flag a prescindere dal valore attuale, anche se vuoto.
-        div.innerHTML = `<label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-          <input type="checkbox" data-colonna="${intestazione}" data-flag="true" style="width:17px;height:17px;accent-color:var(--blue)">
-          <span>${intestazione}</span>
-        </label>`;
-        div.querySelector('input').checked = (valore.trim().toLowerCase() === 'si');
-      } else if (tipo === 'data') {
-        creaInputData();
-      } else if (tipo === 'select' && opzioni) {
-        const opz = opzioni.split(',').map(o => o.trim()).filter(Boolean);
-        div.innerHTML = `<label>${intestazione}</label><select data-colonna="${intestazione}">
-          <option value="">-</option>
-          ${opz.map(o => `<option value="${o}" ${o === valore ? 'selected' : ''}>${o}</option>`).join('')}
-        </select>`;
-      } else if (tipo === 'numero') {
-        div.innerHTML = `<label>${intestazione}</label><input type="number" data-colonna="${intestazione}">`;
-        div.querySelector('input').value = valore;
-      } else if (tipo === 'textarea') {
-        div.innerHTML = `<label>${intestazione}</label><textarea data-colonna="${intestazione}" rows="3" style="width:100%;box-sizing:border-box"></textarea>`;
-        div.querySelector('textarea').value = valore;
-      } else if (!tipo && (valore.trim().toLowerCase() === 'si' || valore.trim().toLowerCase() === 'no')) {
-        // Colonna non piu configurata da nessuna parte (es. rimossa da
-        // Gestione campi), ma il valore salvato lascia intuire che era
-        // un flag: si mantiene per compatibilita.
-        div.innerHTML = `<label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-          <input type="checkbox" data-colonna="${intestazione}" data-flag="true" style="width:17px;height:17px;accent-color:var(--blue)">
-          <span>${intestazione}</span>
-        </label>`;
-        div.querySelector('input').checked = (valore.trim().toLowerCase() === 'si');
-      } else if (!tipo && chiaveCampo.includes('data')) {
-        creaInputData();
-      } else {
-        div.innerHTML = `<label>${intestazione}</label><input type="text" data-colonna="${intestazione}">`;
-        div.querySelector('input').value = valore;
-      }
-      corpo.appendChild(div);
+      corpo.appendChild(creaCampoModale(intestazione, tipo, opzioni, valore));
     });
     const btn = document.getElementById('btnConfermaModale');
     btn.textContent = 'Salva modifiche';
@@ -1096,6 +1098,72 @@
         await caricaIscrizioni(true);
       } else {
         alert('Errore nel salvataggio, riprova.');
+      }
+    } catch (err) {
+      alert('Errore di connessione, riprova.');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  // Registra un cliente direttamente dal pannello, per chi si presenta di
+  // persona invece di compilare il modulo pubblico. Stessi campi di
+  // Modifica anagrafica, tutti vuoti, piu la spunta del consenso privacy
+  // raccolto verbalmente, obbligatoria per poter salvare.
+  function apriAggiungiCliente() {
+    indiceInModale = null;
+    document.getElementById('titoloModale').textContent = 'Aggiungi cliente';
+    const corpo = document.getElementById('corpoModale');
+    corpo.innerHTML = '';
+
+    costruisciElencoCampiAnagrafica().forEach(({ etichetta: intestazione, tipo, opzioni }) => {
+      corpo.appendChild(creaCampoModale(intestazione, tipo, opzioni, ''));
+    });
+
+    const divConsenso = document.createElement('div');
+    divConsenso.className = 'campo-modale';
+    divConsenso.innerHTML = `<label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+      <input type="checkbox" id="consensoPrivacyAggiungiCliente" style="width:17px;height:17px;accent-color:var(--blue)">
+      <span>Il cliente ha prestato il consenso al trattamento dei dati, raccolto di persona</span>
+    </label>`;
+    corpo.appendChild(divConsenso);
+
+    const btn = document.getElementById('btnConfermaModale');
+    btn.textContent = 'Aggiungi cliente';
+    btn.className = '';
+    btn.onclick = salvaAggiungiCliente;
+    document.getElementById('overlayModale').classList.remove('nascosto');
+  }
+
+  async function salvaAggiungiCliente() {
+    const consensoInput = document.getElementById('consensoPrivacyAggiungiCliente');
+    if (!consensoInput.checked) {
+      alert('Serve spuntare il consenso privacy prima di poter salvare.');
+      return;
+    }
+    const dati = {};
+    document.querySelectorAll('#corpoModale input[data-colonna], #corpoModale select[data-colonna], #corpoModale textarea[data-colonna]').forEach(input => {
+      const intestazione = input.dataset.colonna;
+      dati[intestazione] = input.dataset.flag === 'true' ? (input.checked ? 'Si' : 'No') : input.value;
+    });
+    if (!String(dati['Cognome'] || '').trim() || !String(dati['Codice fiscale'] || '').trim()) {
+      alert('Cognome e codice fiscale sono obbligatori.');
+      return;
+    }
+    dati['Consenso privacy'] = 'Accettato';
+    const btn = document.getElementById('btnConfermaModale');
+    btn.disabled = true;
+    try {
+      const res = await fetch(BACKEND_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'aggiungiClienteAdmin', password, dati })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        chiudiModale();
+        await caricaIscrizioni(true);
+      } else {
+        alert(data.errore || 'Errore nel salvataggio, riprova.');
       }
     } catch (err) {
       alert('Errore di connessione, riprova.');
@@ -1209,7 +1277,12 @@
     const consenso = trovaValore(riga, ['consenso privacy']) || 'Accettato';
     const oggi = new Date().toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
     const timestampGrezzo = trovaValore(riga, ['timestamp']);
-    const dataConsenso = timestampGrezzo ? (() => { const d = new Date(timestampGrezzo); return isNaN(d) ? timestampGrezzo : d.toLocaleString('it-IT'); })() : timestampGrezzo;
+    const iscrizioneAdmin = trovaValore(riga, ['iscrizione admin']);
+    // Se il cliente e' stato aggiunto di persona dal pannello, il Timestamp
+    // c'e' comunque (serve a datare correttamente il mandato mandato via
+    // email), ma il consenso non e' mai stato "espresso online": quella
+    // riga in tal caso non deve comparire.
+    const dataConsenso = (timestampGrezzo && iscrizioneAdmin !== 'Si') ? (() => { const d = new Date(timestampGrezzo); return isNaN(d) ? timestampGrezzo : d.toLocaleString('it-IT'); })() : '';
     // Nella versione mandata via email la data accanto a "Roma," deve
     // essere quella in cui il cliente si e' davvero iscritto, cioe' quando
     // e' stato firmato l'originale su carta, non il giorno in cui capita
