@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 95 -->
+<!-- rev. 96 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -216,7 +216,7 @@
 </head>
 <body>
 <div id="loaderGlobale" class="loader-overlay nascosto"><div class="spinner"></div></div>
-<div class="versione">Designed by Gianluca Cioè · rev. 95</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 96</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -477,15 +477,20 @@
     const stato = statoOrdinamento[tabella];
     if (!stato || stato.colonna == null) return righe;
     // Un numero vero solo se TUTTA la stringa e un numero, non solo
-    // l'inizio: altrimenti una data come "2026-01-10" verrebbe letta da
-    // parseFloat come 2026 e basta, perdendo mese e giorno, e tutte le
-    // date dello stesso anno finirebbero per sembrare uguali
-    // nell'ordinamento. Il formato AAAA-MM-GG ordina gia correttamente
-    // anche come semplice testo, quindi le date passano di li.
+    // l'inizio: altrimenti una data come "10/01/2026" verrebbe letta da
+    // parseFloat come 10 e basta. Una data in formato GG/MM/AAAA, a
+    // differenza di AAAA-MM-GG, non ordina bene come semplice testo (il
+    // giorno viene prima dell'anno), quindi prima del confronto si
+    // riporta AAAA-MM-GG solo per ordinare, senza toccare il valore vero.
     const soloNumero = /^-?\d+(\.\d+)?$/;
+    const dataItaliana = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+    const chiaveOrdinabile = (s) => {
+      const m = dataItaliana.exec(s);
+      return m ? `${m[3]}-${m[2]}-${m[1]}` : s;
+    };
     righe.sort((a, b) => {
-      const sa = String(a.r[stato.colonna] ?? '').trim();
-      const sb = String(b.r[stato.colonna] ?? '').trim();
+      const sa = chiaveOrdinabile(String(a.r[stato.colonna] ?? '').trim());
+      const sb = chiaveOrdinabile(String(b.r[stato.colonna] ?? '').trim());
       const numerici = sa !== '' && sb !== '' && soloNumero.test(sa) && soloNumero.test(sb);
       const cmp = numerici ? (parseFloat(sa) - parseFloat(sb)) : sa.toLowerCase().localeCompare(sb.toLowerCase(), 'it');
       return cmp * stato.direzione;
@@ -1188,7 +1193,10 @@
 
     const creaInputData = () => {
       div.innerHTML = `<label>${intestazione}</label><input type="date" data-colonna="${intestazione}">`;
-      div.querySelector('input').value = valore;
+      // Il calendario nativo vuole sempre AAAA-MM-GG: il valore salvato,
+      // in GG/MM/AAAA, va convertito solo per riempire il campo, resta
+      // GG/MM/AAAA ovunque altro, salvataggio compreso.
+      div.querySelector('input').value = italianoInIso(valore);
       if (chiaveCampo.includes('tessera')) {
         const nota = document.createElement('div');
         nota.className = 'nota-cf';
@@ -1350,7 +1358,10 @@
     const dati = {};
     document.querySelectorAll('#corpoModale input, #corpoModale select, #corpoModale textarea').forEach(input => {
       const intestazione = input.dataset.colonna;
-      dati[intestazione] = input.dataset.flag === 'true' ? (input.checked ? 'Si' : 'No') : input.value;
+      if (input.dataset.flag === 'true') { dati[intestazione] = input.checked ? 'Si' : 'No'; return; }
+      // Il calendario nativo restituisce sempre AAAA-MM-GG: si converte
+      // in GG/MM/AAAA solo qui, appena prima di mandarlo al foglio.
+      dati[intestazione] = input.type === 'date' ? isoInItaliano(input.value) : input.value;
     });
     try {
       const res = await fetch(BACKEND_URL, {
@@ -1410,7 +1421,8 @@
     const dati = {};
     document.querySelectorAll('#corpoModale input[data-colonna], #corpoModale select[data-colonna], #corpoModale textarea[data-colonna]').forEach(input => {
       const intestazione = input.dataset.colonna;
-      dati[intestazione] = input.dataset.flag === 'true' ? (input.checked ? 'Si' : 'No') : input.value;
+      if (input.dataset.flag === 'true') { dati[intestazione] = input.checked ? 'Si' : 'No'; return; }
+      dati[intestazione] = input.type === 'date' ? isoInItaliano(input.value) : input.value;
     });
     if (!String(dati['Cognome'] || '').trim() || !String(dati['Codice fiscale'] || '').trim()) {
       alert('Cognome e codice fiscale sono obbligatori.');
@@ -1494,17 +1506,35 @@
   // scelti dall'admin nella scheda Gestione campi.
   function formattaData(valore) {
     if (!valore) return '';
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(String(valore))) return valore;
     const d = new Date(valore);
     if (isNaN(d) || !/^\d{4}-\d{2}-\d{2}/.test(String(valore))) return valore;
     return d.toLocaleDateString('it-IT', { timeZone: 'UTC' });
   }
 
+  // Conversione avanti e indietro tra il formato dei date-picker nativi
+  // del browser, sempre AAAA-MM-GG per requisito dell'HTML, non aggirabile,
+  // e il formato in cui le date vengono lette, mostrate e salvate in
+  // questo sistema, GG/MM/AAAA, quello che si usa in Italia.
+  function isoInItaliano(iso) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : (iso || '');
+  }
+  function italianoInIso(gma) {
+    const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(gma || ''));
+    return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
+  }
+
   // Calcola la scadenza di una tessera, 365 giorni dopo la data indicata,
   // e se e gia passata rispetto a oggi. Non salva nulla, solo calcolo al
-  // volo per la visualizzazione.
+  // volo per la visualizzazione. Accetta sia il formato salvato,
+  // GG/MM/AAAA, sia AAAA-MM-GG, quello che arriva dal campo mentre lo si
+  // sta ancora modificando dal vivo, prima del salvataggio.
   function calcolaScadenzaTessera(valoreData) {
-    if (!valoreData || !/^\d{4}-\d{2}-\d{2}/.test(String(valoreData))) return null;
-    const d = new Date(valoreData);
+    const valore = String(valoreData || '');
+    let iso = /^\d{2}\/\d{2}\/\d{4}$/.test(valore) ? italianoInIso(valore) : valore;
+    if (!iso || !/^\d{4}-\d{2}-\d{2}/.test(iso)) return null;
+    const d = new Date(iso);
     if (isNaN(d)) return null;
     const scadenza = new Date(d.getTime());
     scadenza.setUTCDate(scadenza.getUTCDate() + 365);
@@ -2688,7 +2718,7 @@
     try {
       const res = await fetch(BACKEND_URL, {
         method: 'POST',
-        body: JSON.stringify({ action: 'aggiungiPratica', password, cognome, nome, codiceFiscale, tipo, dataApertura, dipendente, forza: !!forza })
+        body: JSON.stringify({ action: 'aggiungiPratica', password, cognome, nome, codiceFiscale, tipo, dataApertura: isoInItaliano(dataApertura), dipendente, forza: !!forza })
       });
       const data = await res.json();
       if (data.ok) {
@@ -2761,7 +2791,7 @@
       const conclusaB = String(b.r[iFase] || '').toLowerCase().trim() === 'conclusa' ? 1 : 0;
       if (conclusaA !== conclusaB) return conclusaA - conclusaB;
       const chiave = (x) => (x.r[iCognome] + ' ' + x.r[iNome]).toLowerCase();
-      return chiave(a).localeCompare(chiave(b), 'it') || String(b.r[iDataApertura] || '').localeCompare(String(a.r[iDataApertura] || ''));
+      return chiave(a).localeCompare(chiave(b), 'it') || italianoInIso(String(b.r[iDataApertura] || '')).localeCompare(italianoInIso(String(a.r[iDataApertura] || '')));
     });
     righe = applicaOrdinamento(righe, 'pratiche');
 
@@ -2817,7 +2847,7 @@
         </td>
         <td>${cellaPagamento}</td>
         <td style="text-align:center">${cellaPagato}</td>
-        <td><input type="date" value="${r[iDataChiusura] ? String(r[iDataChiusura]).slice(0, 10) : ''}" onchange="cambiaDataChiusura(${indiceOriginale}, this)" style="width:140px"></td>
+        <td><input type="date" value="${r[iDataChiusura] ? italianoInIso(String(r[iDataChiusura])) : ''}" onchange="cambiaDataChiusura(${indiceOriginale}, this)" style="width:140px"></td>
         <td><input type="text" value="${(r[iNota] || '').toString().replace(/"/g, '&quot;')}" onchange="aggiornaCellaPratica(${indiceOriginale}, 'Nota', this.value)" style="width:280px;font-size:11.5px"></td>
         <td class="col-azioni"><button class="pericolo" onclick="eliminaPratica(${indiceOriginale})">Elimina</button></td>
       </tr>`;
@@ -2849,7 +2879,7 @@
       }
       const oggi = new Date().toISOString().slice(0, 10);
       await aggiornaCellaPratica(indiceRiga, 'Fase', 'Conclusa');
-      await aggiornaCellaPratica(indiceRiga, 'DataChiusura', oggi);
+      await aggiornaCellaPratica(indiceRiga, 'DataChiusura', isoInItaliano(oggi));
       await caricaPratiche();
       return;
     }
@@ -2868,14 +2898,17 @@
     const riga = ultimePratiche.righe[indiceRiga];
     const iFase = ultimePratiche.intestazioni.indexOf('Fase');
     const faseAttuale = iFase >= 0 ? riga[iFase] : '';
+    // input.value e sempre AAAA-MM-GG, il calendario nativo non da altra
+    // scelta: si converte solo appena prima di mandarlo al foglio.
     const nuovaData = input.value;
+    const nuovaDataItaliana = isoInItaliano(nuovaData);
 
     if (nuovaData && faseAttuale !== 'Conclusa') {
       if (!confirm('Impostando una data di chiusura, la pratica diventa Conclusa. Confermi?')) {
         input.value = '';
         return;
       }
-      await aggiornaCellaPratica(indiceRiga, 'DataChiusura', nuovaData);
+      await aggiornaCellaPratica(indiceRiga, 'DataChiusura', nuovaDataItaliana);
       await aggiornaCellaPratica(indiceRiga, 'Fase', 'Conclusa');
       await caricaPratiche();
       return;
@@ -2888,7 +2921,7 @@
       return;
     }
 
-    await aggiornaCellaPratica(indiceRiga, 'DataChiusura', nuovaData);
+    await aggiornaCellaPratica(indiceRiga, 'DataChiusura', nuovaDataItaliana);
   }
 
   async function aggiornaCellaPratica(indiceRiga, colonna, valore) {

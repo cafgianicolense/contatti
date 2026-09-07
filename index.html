@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Iscrizione CAF Gianicolense</title>
-<!-- rev. 22 -->
+<!-- rev. 23 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -139,7 +139,7 @@
 </style>
 </head>
 <body>
-<div class="versione">Designed by Gianluca Cioè · rev. 22</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 23</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -621,6 +621,17 @@
       btn.textContent = 'Invia iscrizione';
       return;
     }
+
+    // Solo qui, dopo il controllo qui sopra sul formato AAAA-MM-GG che
+    // arriva dal calendario nativo, si converte in GG/MM/AAAA, il
+    // formato in cui le date vengono lette, mostrate e salvate.
+    [...CAMPI_FISSI, ...campiCorrenti].forEach(c => {
+      const chiave = ((c.nome || '') + ' ' + (c.etichetta || '')).toLowerCase();
+      const eCampoData = c.tipo === 'data' || chiave.includes('data di nascita');
+      if (!eCampoData) return;
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dati[c.etichetta] || '');
+      if (m) dati[c.etichetta] = `${m[3]}/${m[2]}/${m[1]}`;
+    });
 
     // Il server a volte risponde con qualche secondo di ritardo: si
     // aspetta piu del solito prima di dichiarare un vero errore di
