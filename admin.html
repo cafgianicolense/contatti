@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 88 -->
+<!-- rev. 90 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -194,7 +194,7 @@
 </head>
 <body>
 <div id="loaderGlobale" class="loader-overlay nascosto"><div class="spinner"></div></div>
-<div class="versione">Designed by Gianluca Cioè · rev. 88</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 90</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -1202,7 +1202,8 @@
     const oggi = new Date().toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
     const timestampGrezzo = trovaValore(riga, ['timestamp']);
     const dataConsenso = timestampGrezzo ? (() => { const d = new Date(timestampGrezzo); return isNaN(d) ? timestampGrezzo : d.toLocaleString('it-IT'); })() : timestampGrezzo;
-    const revPannello = (document.querySelector('.versione')?.textContent || '').trim();
+    const testoFooterPannello = document.querySelector('.versione')?.textContent || '';
+    const revPannello = (testoFooterPannello.match(/rev\.\s*\d+/i) || [])[0] || '';
 
     // Le righe restano vuote, le compili a penna dopo la stampa.
 
@@ -1300,7 +1301,7 @@
     nato/a a ${luogoNascita} il ${dataNascita}, codice fiscale <strong>${codiceFiscale}</strong>,
     conferisco mandato al <strong>CAF Gianicolense</strong> a rappresentarmi ed assistermi in merito alla pratica indicata in calce.</p>
     <div class="firme">
-      <div class="firma-riga"><span>Data</span><span class="linea-firma">${oggi}</span></div>
+      <div class="firma-riga"><span>Roma,</span><span class="linea-firma">${oggi}</span></div>
       <div class="firma-riga"><span>Firma</span><span class="linea-firma"></span></div>
     </div>
   </div>
