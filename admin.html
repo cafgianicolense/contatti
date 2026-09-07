@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin iscrizioni, CAF Gianicolense</title>
-<!-- rev. 93 -->
+<!-- rev. 94 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -190,6 +190,8 @@
   #loginBox input { width: 100%; margin-top: 6px; margin-bottom: 14px; }
   .nota { font-size: 13px; color: var(--muted); line-height: 1.5; }
   .riga-ricerca { display: block; margin: 22px 0 16px; }
+  .btn-pulisci-ricerca { padding: 6px 10px; font-size: 12px; background: #8a8a82; margin-left: 6px; vertical-align: top; }
+  .btn-pulisci-ricerca:hover { background: #6f6f68; }
   code {
     background: var(--paper); border: 1px solid var(--line); padding: 1px 5px;
     border-radius: 2px; font-size: 12px;
@@ -198,7 +200,7 @@
 </head>
 <body>
 <div id="loaderGlobale" class="loader-overlay nascosto"><div class="spinner"></div></div>
-<div class="versione">Designed by Gianluca Cioè · rev. 93</div>
+<div class="versione">Designed by Gianluca Cioè · rev. 94</div>
 <div class="box">
   <div class="intestazione">
     <img src="logo.png" alt="CAF Gianicolense">
@@ -242,6 +244,7 @@
       <p class="nota" style="margin-top:10px">Alcune colonne meno usate sono nascoste dalla tabella ma restano cercabili. Click sul cognome per il riepilogo delle pratiche, doppio click per modificare l'anagrafica.</p>
       <label class="riga-ricerca">Cerca, per cognome, nome, data di nascita o qualunque altro dato<br>
         <input type="text" id="cercaIscrizioni" placeholder="Scrivi per filtrare..." oninput="disegnaTabellaIscrizioni()" style="max-width:480px">
+        <button type="button" class="btn-pulisci-ricerca" onclick="document.getElementById('cercaIscrizioni').value='';disegnaTabellaIscrizioni()">×</button>
       </label>
       <div id="tabellaIscrizioni"></div>
     </div>
@@ -290,6 +293,7 @@
       <br><br>
       <label class="riga-ricerca">Cerca, per cliente o email<br>
         <input type="text" id="cercaEmailMassivo" placeholder="Scrivi per filtrare..." oninput="disegnaDestinatariMassivo()" style="max-width:480px">
+        <button type="button" class="btn-pulisci-ricerca" onclick="document.getElementById('cercaEmailMassivo').value='';disegnaDestinatariMassivo()">×</button>
       </label>
       <div id="elencoDestinatariMassivo"></div>
       <br>
@@ -336,6 +340,7 @@
       <button id="btnFiltroLuca" class="secondario" onclick="toggleFiltroLuca()">Solo servizi di Luca</button>
       <label class="riga-ricerca">Cerca, per cliente, tipo, fase o qualunque altro dato<br>
         <input type="text" id="cercaPratiche" placeholder="Scrivi per filtrare..." oninput="disegnaTabellaPratiche()" style="max-width:480px">
+        <button type="button" class="btn-pulisci-ricerca" onclick="document.getElementById('cercaPratiche').value='';disegnaTabellaPratiche()">×</button>
       </label>
       <div id="tabellaPratiche" style="margin-top:14px"></div>
     </div>
@@ -366,6 +371,7 @@
       <button class="secondario" onclick="caricaSchedaBustePaga(true)">Aggiorna elenco</button>
       <label class="riga-ricerca">Cerca, per cliente, dipendente o anno<br>
         <input type="text" id="cercaBustePaga" placeholder="Scrivi per filtrare..." oninput="disegnaTabellaBustePaga()" style="max-width:340px">
+        <button type="button" class="btn-pulisci-ricerca" onclick="document.getElementById('cercaBustePaga').value='';disegnaTabellaBustePaga()">×</button>
       </label>
       <div id="tabellaBustePaga" style="margin-top:14px"></div>
     </div>
@@ -1162,6 +1168,18 @@
       if (data.ok) {
         chiudiModale();
         await caricaIscrizioni(true);
+        // Chiede se aprire subito Pratiche per questo stesso cliente, gia
+        // selezionato nel menu Cliente, invece di doverlo ricercare a mano
+        // appena inserito.
+        if (confirm('Cliente aggiunto. Vuoi inserire subito una pratica per lui?')) {
+          mostraTab('pratiche');
+          await caricaSchedaPratiche(true);
+          const sel = document.getElementById('clienteNuovaPratica');
+          const valoreAtteso = `${dati['Cognome']}|||${dati['Nome'] || ''}|||${dati['Codice fiscale']}`;
+          if ([...sel.options].some(o => o.value === valoreAtteso)) {
+            sel.value = valoreAtteso;
+          }
+        }
       } else {
         alert(data.errore || 'Errore nel salvataggio, riprova.');
       }
