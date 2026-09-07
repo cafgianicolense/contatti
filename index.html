@@ -598,6 +598,30 @@
     });
     dati['Consenso privacy'] = document.getElementById('consensoPrivacy').checked ? 'Accettato' : 'Non accettato';
 
+    // Un campo data dovrebbe sempre arrivare gia nel formato AAAA-MM-GG,
+    // garantito dal calendario nativo del browser. Ma su alcuni telefoni
+    // o browser piu vecchi, se il calendario non e supportato, il campo
+    // torna un semplice testo libero: un suggerimento di completamento
+    // automatico del telefono puo allora incollarsi dentro senza
+    // sostituire quello che c'era gia scritto, producendo un valore
+    // incoerente tipo "212001-08-09" invece di "2001-08-09" (caso reale
+    // successo, cliente iscritto con data di nascita cosi sballata).
+    // Si blocca l'invio invece di lasciar passare un dato del genere.
+    let campoDataNonValido = null;
+    [...CAMPI_FISSI, ...campiCorrenti].forEach(c => {
+      const chiave = ((c.nome || '') + ' ' + (c.etichetta || '')).toLowerCase();
+      const eCampoData = c.tipo === 'data' || chiave.includes('data di nascita');
+      if (!eCampoData || campoDataNonValido) return;
+      const valore = dati[c.etichetta];
+      if (valore && !/^\d{4}-\d{2}-\d{2}$/.test(valore)) campoDataNonValido = c.etichetta;
+    });
+    if (campoDataNonValido) {
+      esitoEl.innerHTML = `<span class="errore">Il campo "${campoDataNonValido}" non contiene una data valida, prova a riselezionarla dal calendario invece di scriverla a mano.</span>`;
+      btn.disabled = false;
+      btn.textContent = 'Invia iscrizione';
+      return;
+    }
+
     // Il server a volte risponde con qualche secondo di ritardo: si
     // aspetta piu del solito prima di dichiarare un vero errore di
     // connessione, invece di far credere subito che l'invio sia fallito.
