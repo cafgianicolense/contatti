@@ -2,675 +2,336 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Iscrizione CAF Gianicolense</title>
-<!-- rev. 23 -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="comuni.js"></script>
+<link rel="icon" href="logo.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fjalla+One&display=swap">
+<!--
+  Modulo di iscrizione del CAF Gianicolense (fase 5 del portale nuovo, 28 ottobre 2026). Sta su GitHub Pages insieme a
+  logo.png, comuni.js e cf.js (lo stesso calcolo del codice fiscale del portale).
+  Legge campi e informativa da Firebase (/modulo, li pubblica il portale) e lascia l'iscrizione in /inArrivo, dove può
+  solo aggiungere: non legge, non modifica e non cancella niente. Il portale la preleva e la mette in anagrafica.
+  Qui c'è solo l'indirizzo del database, che non è segreto. La chiave del database non va MAI messa in questo file.
+-->
 <style>
   :root {
-    --ink: #1c1f26;
-    --muted: #726f66;
-    --blue: #4e6aa9;
-    --blue-dark: #37507f;
-    --green: #2f7d5c;
-    --red: #b3402f;
-    --paper: #f3f1ea;
-    --card: #ffffff;
-    --line: #dcd8cc;
+    color-scheme: light only;
+    /* stessi colori del portale dalla 2.0.0: blu reale e fondo azzurrino */
+    --blu: #173a7a; --blu-chiaro: #2f5fb3; --blu-bordo: #a9c0e6; --blu-tinta: #e3ecfa;
+    --sfondo: #eaf0fa; --bordo: #c3d3ec; --gruppo-tinta: #dde7f6;
+    --verde: #16a370; --verde-tinta: #e0f5ec; --arancio: #d2601a; --arancio-tinta: #fdeedd;
+    --rosso: #c22a2a; --rosso-tinta: #fbe8e4; --testo: #152238; --testo-tenue: #52627c;
   }
   * { box-sizing: border-box; }
-  body {
-    font-family: 'Inter', Helvetica, Arial, sans-serif;
-    background: var(--paper);
-    color: var(--ink);
-    margin: 0;
-    padding: 56px 20px;
-    min-height: 100vh;
+  body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; background: var(--sfondo); color: var(--testo); font-size: 16px; line-height: 1.4; }
+  .pagina { max-width: 680px; margin: 0 auto; padding: 20px 16px 40px; }
+  .testata { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
+  .testata img { height: 58px; width: auto; background: #fff; border-radius: 10px; padding: 6px 10px; box-shadow: 0 3px 8px rgba(55, 80, 127, .22); }
+  h1 { font-family: 'Fjalla One', 'Arial Narrow', Arial, sans-serif; text-transform: uppercase; font-weight: 400; color: var(--blu); font-size: 28px; line-height: 1.05; margin: 0; }
+  .sottotitolo { color: var(--blu-chiaro); font-weight: 600; font-size: 14px; margin-top: 4px; }
+  .riquadro { background: #fff; border: 1px solid var(--bordo); border-radius: 12px; padding: 18px 18px 8px; margin-bottom: 14px; }
+  h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .04em; color: var(--blu); margin: 0 0 14px; }
+  .campo { display: block; margin-bottom: 14px; font-size: 14px; font-weight: 600; color: var(--testo); }
+  .campo > span.etichetta { display: block; margin-bottom: 5px; }
+  .obbl { color: var(--rosso); }
+  input[type=text], input[type=email], input[type=tel], input[type=date], input[type=number], select, textarea {
+    width: 100%; font: inherit; font-weight: 400; font-size: 16px; padding: 10px 11px; border: 1px solid var(--bordo); border-radius: 8px; background: #fff; color: var(--testo);
   }
-  .box {
-    max-width: 520px;
-    margin: 0 auto;
-    background: var(--card);
-    padding: 40px 36px 36px;
-    border: 1px solid var(--line);
-    box-shadow: 0 24px 48px -28px rgba(28, 31, 38, 0.28);
-  }
-  .intestazione { display: flex; justify-content: center; margin-bottom: 22px; }
-  .intestazione img { max-width: 260px; display: block; }
-  .divisore {
-    border: none;
-    border-top: 2px dashed var(--blue);
-    opacity: 0.55;
-    margin: 0 0 26px;
-  }
-  h1 {
-    font-family: 'Fraunces', Georgia, serif;
-    font-weight: 600;
-    font-size: 26px;
-    letter-spacing: -0.01em;
-    margin: 0 0 6px;
-  }
-  .sottotitolo { font-size: 14px; color: var(--muted); margin: 0 0 8px; line-height: 1.5; }
-  label { display: block; margin-top: 20px; font-weight: 600; font-size: 13px; color: var(--ink); }
-  input[type=text], input[type=number], input[type=date], input[type=email], textarea, select {
-    width: 100%; padding: 11px 12px; margin-top: 6px; box-sizing: border-box;
-    border: 1px solid var(--line); border-radius: 2px; font-size: 14px;
-    font-family: 'Inter', sans-serif; background: #fdfcfa; color: var(--ink);
-    transition: border-color .15s ease, box-shadow .15s ease;
-  }
-  input:focus, textarea:focus, select:focus {
-    outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(78,106,169,0.15);
-  }
-  .checkbox-row { display: flex; align-items: center; margin-top: 20px; gap: 10px; }
-  .checkbox-row input { margin: 0; width: 17px; height: 17px; accent-color: var(--blue); flex-shrink: 0; }
-  .checkbox-row label { margin-top: 0; font-weight: 500; }
-  .sezione {
-    margin-top: 30px; padding-top: 22px; border-top: 1px solid var(--line);
-  }
-  .sezione:first-child { margin-top: 0; padding-top: 0; border-top: none; }
-  .sezione h2 {
-    font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 17px; margin: 0 0 4px;
-  }
-  .informativa h2 { margin-bottom: 10px; }
-  .testo-informativa {
-    max-height: 220px; overflow-y: auto; font-size: 12.5px; line-height: 1.6; color: var(--muted);
-    background: #fdfcfa; border: 1px solid var(--line); padding: 14px 16px; margin-bottom: 4px;
-  }
-  .testo-informativa p { margin: 0 0 10px; }
-  .testo-informativa p:last-child { margin-bottom: 0; }
-  .informativa .checkbox-row { align-items: flex-start; }
-  .informativa .checkbox-row input { margin-top: 3px; }
-  .informativa .checkbox-row label { font-size: 13px; font-weight: 500; line-height: 1.5; }
-  button {
-    margin-top: 30px; width: 100%; padding: 13px; background: var(--blue); color: #fff;
-    border: none; border-radius: 2px; font-size: 15px; font-weight: 600; letter-spacing: .01em;
-    cursor: pointer; font-family: 'Inter', sans-serif; transition: background .15s ease;
-  }
-  button:hover:not(:disabled) { background: var(--blue-dark); }
-  button:disabled { background: #c7c4ba; cursor: default; }
-  #esito { margin-top: 18px; font-size: 14px; }
-  .ok { color: var(--green); font-weight: 600; }
-  .errore { color: var(--red); font-weight: 600; }
-  .nascosto { display: none; }
-  .successo { text-align: center; padding: 20px 6px 8px; }
-  .successo-icona {
-    width: 60px; height: 60px; border-radius: 50%; background: var(--green);
-    color: #fff; font-size: 30px; line-height: 60px; margin: 0 auto 18px;
-  }
-  .successo h1 {
-    font-size: 22px; line-height: 1.3; margin-bottom: 10px;
-  }
-  .successo .sottotitolo { max-width: 380px; margin: 0 auto; }
-  .versione {
-    position: fixed; bottom: 8px; right: 12px; font-size: 11px;
-    color: var(--muted); opacity: 0.6; font-family: 'Inter', sans-serif;
-  }
-  .avviso-cf {
-    font-size: 12.5px; margin-top: 6px; color: var(--red); display: none;
-  }
-  .avviso-cf.visibile { display: block; }
-  .nota-cf {
-    font-size: 12px; margin-top: 6px; color: var(--muted);
-  }
-  .campo-comune { position: relative; }
-  .suggerimenti-comune {
-    position: absolute; left: 0; right: 0; top: 100%; margin-top: 2px;
-    background: var(--card); border: 1px solid var(--line);
-    max-height: 220px; overflow-y: auto; z-index: 20;
-    box-shadow: 0 12px 24px -12px rgba(28, 31, 38, 0.35); display: none;
-  }
-  .suggerimenti-comune.visibile { display: block; }
-  .suggerimenti-comune div {
-    padding: 9px 12px; font-size: 13.5px; cursor: pointer;
-  }
-  .suggerimenti-comune div:hover, .suggerimenti-comune div.attivo {
-    background: var(--paper);
-  }
-  .riga-cf { display: flex; gap: 8px; align-items: stretch; }
-  .riga-cf input { flex: 1; }
-  .btn-calcola {
-    margin-top: 6px; width: auto; padding: 0 16px; font-size: 13px;
-    background: #6b6a63; white-space: nowrap;
-  }
-  .btn-calcola:hover { background: #55544e; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--blu-chiaro); box-shadow: 0 0 0 3px rgba(78, 106, 169, .15); }
+  input[readonly] { background: var(--gruppo-tinta); color: var(--testo-tenue); }
+  .griglia { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+  .griglia .intero { grid-column: 1 / -1; }
+  @media (max-width: 520px) { .griglia { grid-template-columns: 1fr; } h1 { font-size: 24px; } .testata img { height: 48px; } }
+  .nota { display: block; font-size: 13px; font-weight: 400; color: var(--testo-tenue); margin-top: 5px; }
+  .nota.errore { color: var(--rosso); }
+  .nota.avviso { color: #7a4a00; }
+  .riga-cf { display: flex; gap: 8px; }
+  .riga-cf input { text-transform: uppercase; letter-spacing: .04em; }
+  .btn { font: inherit; font-weight: 600; border-radius: 8px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--bordo); background: #fff; color: var(--testo); }
+  .btn:hover { border-color: var(--blu-chiaro); }
+  .btn-primario { background: var(--blu); border-color: var(--blu); color: #fff; width: 100%; font-size: 17px; padding: 14px; }
+  .btn-primario:hover { background: var(--blu-chiaro); }
+  .btn-primario:disabled { opacity: .6; cursor: default; }
+  .spunta { display: flex; gap: 10px; align-items: flex-start; font-weight: 400; margin-bottom: 14px; font-size: 15px; cursor: pointer; }
+  .spunta input { width: 20px; height: 20px; margin: 1px 0 0; flex: none; accent-color: var(--blu); }
+  .informativa { max-height: 220px; overflow-y: auto; background: var(--sfondo); border: 1px solid var(--bordo); border-radius: 8px; padding: 4px 14px; font-size: 13.5px; color: #4a443d; margin-bottom: 14px; }
+  .comune { position: relative; }
+  .suggerimenti { position: absolute; left: 0; right: 0; top: 100%; margin-top: 2px; background: #fff; border: 1px solid var(--bordo); border-radius: 8px; box-shadow: 0 10px 24px rgba(0, 0, 0, .15); z-index: 10; display: none; max-height: 260px; overflow-y: auto; font-weight: 400; }
+  .suggerimenti.visibile { display: block; }
+  .suggerimenti div { padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #dbe5f4; }
+  .suggerimenti div:last-child { border-bottom: none; }
+  .suggerimenti div:hover, .suggerimenti div.attivo { background: var(--blu-tinta); }
+  .messaggio { border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; font-size: 15px; }
+  .messaggio.errore { background: var(--rosso-tinta); border: 1px solid var(--rosso); color: #7a1f10; }
+  .messaggio.attesa { background: var(--blu-tinta); border: 1px solid var(--blu-bordo); color: var(--blu); }
+  .successo { text-align: center; padding: 34px 18px; }
+  .successo .segno { width: 72px; height: 72px; border-radius: 50%; background: var(--verde-tinta); color: var(--verde); font-size: 40px; line-height: 72px; margin: 0 auto 16px; }
+  .successo h1 { font-size: 30px; margin-bottom: 10px; }
+  .successo p { color: var(--testo-tenue); margin: 0 0 22px; }
+  .nascosto { display: none !important; }
+  /* campo trappola per i programmi automatici: le persone non lo vedono */
+  .hp { position: absolute; left: -5000px; width: 1px; height: 1px; overflow: hidden; }
+  .piede { text-align: center; font-size: 12px; color: var(--testo-tenue); margin-top: 18px; }
 </style>
 </head>
 <body>
-<div class="versione">Designed by Gianluca Cioè · rev. 23</div>
-<div class="box">
-  <div class="intestazione">
+<div class="pagina">
+  <div class="testata">
     <img src="logo.png" alt="CAF Gianicolense">
+    <div>
+      <h1>Modulo di iscrizione</h1>
+      <div class="sottotitolo">CAF Gianicolense</div>
+    </div>
   </div>
-  <hr class="divisore">
-  <h1>Modulo di iscrizione</h1>
-  <p class="sottotitolo">Compila i campi qui sotto per completare la tua iscrizione al CAF Gianicolense.</p>
-  <form id="form">
-    <div class="sezione">
+
+  <div id="caricamento" class="messaggio attesa">Caricamento del modulo...</div>
+
+  <form id="modulo" class="nascosto" novalidate autocomplete="on">
+    <div class="riquadro">
       <h2>Dati anagrafici</h2>
-      <div id="campiFissi"></div>
+      <div class="griglia">
+        <label class="campo"><span class="etichetta">Cognome <span class="obbl">*</span></span><input type="text" id="f-cognome" maxlength="80" autocomplete="family-name"></label>
+        <label class="campo"><span class="etichetta">Nome <span class="obbl">*</span></span><input type="text" id="f-nome" maxlength="80" autocomplete="given-name"></label>
+        <label class="campo"><span class="etichetta">Sesso <span class="obbl">*</span></span>
+          <select id="f-sesso"><option value="">Scegli...</option><option value="M">Maschio</option><option value="F">Femmina</option></select></label>
+        <label class="campo"><span class="etichetta">Data di nascita <span class="obbl">*</span></span><input type="date" id="f-data" min="1900-01-01" autocomplete="bday"></label>
+        <label class="campo intero"><span class="etichetta">Comune di nascita o stato estero <span class="obbl">*</span></span>
+          <div class="comune"><input type="text" id="f-comune" maxlength="80" autocomplete="off" placeholder="Inizia a scrivere e scegli dall'elenco"><div class="suggerimenti"></div></div>
+          <span class="nota">Per chi è nato all'estero: scrivi lo Stato di nascita.</span></label>
+        <label class="campo intero"><span class="etichetta">Codice fiscale <span class="obbl">*</span></span>
+          <div class="riga-cf"><input type="text" id="f-cf" maxlength="16" autocomplete="off" spellcheck="false"><button type="button" class="btn" id="calcola-cf">Calcola</button></div>
+          <span class="nota" id="nota-cf">Si compila da solo con i dati qui sopra. Si può correggere a mano.</span></label>
+      </div>
     </div>
 
-    <div class="sezione" id="sezioneDinamica">
-      <div id="campiDinamici"></div>
+    <div class="riquadro" id="riquadro-altri">
+      <h2>Altri dati</h2>
+      <div class="griglia" id="campi-altri"></div>
     </div>
 
-    <div class="sezione informativa">
+    <div class="riquadro">
       <h2>Informativa privacy</h2>
-      <div class="testo-informativa" id="testoInformativa">
-        <p>Caricamento dell'informativa in corso...</p>
-      </div>
-      <div class="checkbox-row">
-        <input type="checkbox" id="consensoPrivacy" required>
-        <label for="consensoPrivacy">Dichiaro di aver letto l'informativa sul trattamento dei dati personali e presto il mio consenso ai sensi dell'art. 13 del Regolamento europeo 679/2016.</label>
-      </div>
+      <div class="informativa" id="informativa"></div>
+      <label class="spunta"><input type="checkbox" id="f-consenso">
+        <span>Dichiaro di aver letto l'informativa sul trattamento dei dati personali e presto il mio consenso ai sensi del Regolamento europeo 679/2016. <span class="obbl">*</span></span></label>
     </div>
+
+    <div class="hp" aria-hidden="true"><label>Sito web <input type="text" id="f-sito" tabindex="-1" autocomplete="off"></label></div>
+
+    <div id="esito"></div>
+    <button type="submit" class="btn btn-primario" id="invia">Invia iscrizione</button>
   </form>
 
-  <div id="schermataSuccesso" class="successo nascosto">
-    <div class="successo-icona">&#10003;</div>
-    <h1>Mandato completato<br>e salvato con successo</h1>
-    <p class="sottotitolo">La tua iscrizione è stata registrata. Se hai bisogno di inviarne una nuova, ricarica questa pagina.</p>
+  <div id="successo" class="riquadro successo nascosto">
+    <div class="segno">&#10003;</div>
+    <h1>Iscrizione inviata, grazie</h1>
+    <p>I dati sono arrivati al CAF Gianicolense.</p>
   </div>
 
-  <div id="esito"></div>
+  <div class="piede">CAF Gianicolense · Designed by Gianluca Cioè</div>
 </div>
 
+<script src="comuni.js"></script>
+<script src="cf.js"></script>
 <script>
-  // Sostituisci con l'URL del tuo Web App Apps Script, quello che finisce con /exec
-  const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbwfARR9qd6ljdrmnar5JU-IejRR3S_6ZfIZw-lWsz8jDk9PBkMEd9uexc0F5Fd2t02VXw/exec';
+'use strict';
+const FIREBASE_URL = 'https://caf-gianicolense-default-rtdb.europe-west1.firebasedatabase.app';
+const VERSIONE_MODULO = '1';
+const $ = s => document.querySelector(s);
+let campiModulo = [];
 
-  // Dati anagrafici fondamentali, sempre presenti nel modulo e non
-  // rimovibili dal pannello admin, necessari al calcolo del codice
-  // fiscale. Tutto il resto (indirizzo, telefono, email, ecc.) resta
-  // configurabile dalla scheda Gestione campi.
-  const CAMPI_FISSI = [
-    { nome: 'cognome', etichetta: 'Cognome', tipo: 'testo', obbligatorio: true },
-    { nome: 'nome', etichetta: 'Nome', tipo: 'testo', obbligatorio: true },
-    { nome: 'sesso', etichetta: 'Sesso', tipo: 'select', opzioni: 'M,F', obbligatorio: true },
-    { nome: 'data_nascita', etichetta: 'Data di nascita', tipo: 'data', obbligatorio: true },
-    { nome: 'comune_nascita', etichetta: 'Comune di nascita', tipo: 'testo', obbligatorio: true },
-    { nome: 'codice_fiscale', etichetta: 'Codice fiscale', tipo: 'testo', obbligatorio: true }
-  ];
-
-  const formEl = document.getElementById('form');
-  const camposFissiEl = document.getElementById('campiFissi');
-  const camposEl = document.getElementById('campiDinamici');
-  const esitoEl = document.getElementById('esito');
-  let campiCorrenti = [];
-
-  function creaCampo(campo) {
-    const wrapper = document.createElement('div');
-    if (campo.tipo === 'checkbox') {
-      wrapper.className = 'checkbox-row';
-      wrapper.innerHTML = `
-        <input type="checkbox" id="c_${campo.nome}" name="${campo.nome}">
-        <label for="c_${campo.nome}">${campo.etichetta}</label>
-      `;
-      return wrapper;
-    }
-    const label = document.createElement('label');
-    label.textContent = campo.etichetta + (campo.obbligatorio ? ' *' : '');
-    label.htmlFor = 'c_' + campo.nome;
-    wrapper.appendChild(label);
-
-    let input;
-    const chiave = ((campo.nome || '') + ' ' + (campo.etichetta || '')).toLowerCase();
-    if (campo.tipo === 'select') {
-      input = document.createElement('select');
-      const opzioni = (campo.opzioni || '').split(',').map(o => o.trim()).filter(Boolean);
-      const vuota = document.createElement('option');
-      vuota.value = '';
-      vuota.textContent = 'Seleziona...';
-      input.appendChild(vuota);
-      opzioni.forEach(o => {
-        const opt = document.createElement('option');
-        opt.value = o;
-        opt.textContent = o;
-        input.appendChild(opt);
-      });
-    } else if (campo.tipo === 'textarea') {
-      input = document.createElement('textarea');
-      input.rows = 3;
-    } else if (campo.tipo === 'data' || chiave.includes('data di nascita')) {
-      // Il calendario si applica sempre alla data di nascita, anche se il
-      // tipo salvato nel foglio Campi fosse ancora "Testo".
-      input = document.createElement('input');
-      input.type = 'date';
-    } else {
-      input = document.createElement('input');
-      input.type = campo.tipo === 'numero' ? 'number' : 'text';
-    }
-    input.id = 'c_' + campo.nome;
-    input.name = campo.nome;
-    if (campo.obbligatorio) input.required = true;
-
-    // Riconosce automaticamente alcuni campi in base al nome interno o
-    // all'etichetta, e applica il formato o l'aiuto corretto.
-    if (campo.tipo === 'testo' && chiave.includes('codice fiscale')) {
-      input.pattern = '[A-Za-z]{6}[0-9]{2}[A-Za-z][0-9]{2}[A-Za-z][0-9]{3}[A-Za-z]';
-      input.maxLength = 16;
-      input.title = 'Il codice fiscale deve avere 16 caratteri, nel formato standard, es. RSSMRA80A01H501Z';
-      input.placeholder = 'Compilato automaticamente dai dati sopra';
-      input.addEventListener('input', () => { input.value = input.value.toUpperCase(); });
-      const rigaInput = document.createElement('div');
-      rigaInput.className = 'riga-cf';
-      const btnCalcola = document.createElement('button');
-      btnCalcola.type = 'button';
-      btnCalcola.className = 'btn-calcola';
-      btnCalcola.textContent = 'Calcola';
-      btnCalcola.id = 'btnCalcolaCF';
-      rigaInput.appendChild(input);
-      rigaInput.appendChild(btnCalcola);
-      const nota = document.createElement('div');
-      nota.className = 'nota-cf';
-      nota.textContent = 'Si compila da solo in base a cognome, nome, sesso, data e comune di nascita, oppure premi Calcola. Puoi comunque correggerlo a mano.';
-      const avviso = document.createElement('div');
-      avviso.className = 'avviso-cf';
-      avviso.id = 'avvisoCF';
-      wrapper.appendChild(rigaInput);
-      wrapper.appendChild(nota);
-      wrapper.appendChild(avviso);
-      return wrapper;
-    } else if (campo.tipo === 'testo' && (chiave.includes('email') || chiave.includes('mail'))) {
-      input.type = 'email';
-      input.title = 'Inserisci un indirizzo email valido, es. nome@esempio.it';
-      input.placeholder = 'nome@esempio.it';
-    } else if (campo.tipo === 'testo' && /(comune|luogo) di (nascita|residenza)/.test(chiave)) {
-      input.placeholder = 'Inizia a scrivere il nome del comune...';
-      input.autocomplete = 'off';
-      const contenitore = document.createElement('div');
-      contenitore.className = 'campo-comune';
-      const suggerimenti = document.createElement('div');
-      suggerimenti.className = 'suggerimenti-comune';
-      collegaSuggerimentiComune(input, suggerimenti);
-      contenitore.appendChild(input);
-      contenitore.appendChild(suggerimenti);
-      wrapper.appendChild(contenitore);
-      return wrapper;
-    } else if (campo.tipo === 'testo' && chiave.includes('provincia di residenza')) {
-      input.maxLength = 2;
-      input.placeholder = 'Si compila da sola';
-      input.disabled = true;
-      input.tabIndex = -1;
-      const nota = document.createElement('div');
-      nota.className = 'nota-cf';
-      nota.textContent = 'Si compila da sola scegliendo il comune di residenza dal menu di suggerimenti, non modificabile a mano.';
-      wrapper.appendChild(input);
-      wrapper.appendChild(nota);
-      return wrapper;
-    }
-
-    wrapper.appendChild(input);
-    return wrapper;
+// --- caricamento di campi e informativa, pubblicati dal portale ---
+async function carica() {
+  $('#caricamento').className = 'messaggio attesa';
+  $('#caricamento').textContent = 'Caricamento del modulo...';
+  try {
+    const r = await fetch(FIREBASE_URL + '/modulo.json', { cache: 'no-store' });
+    if (!r.ok) throw new Error('Errore ' + r.status);
+    const m = (await r.json()) || {};
+    // Firebase restituisce gli elenchi come array, ma per sicurezza si accetta anche un oggetto con chiavi 0, 1, 2...
+    campiModulo = (Array.isArray(m.campi) ? m.campi : Object.values(m.campi || {})).filter(c => c && c.nome);
+    disegnaCampi();
+    const inf = $('#informativa');
+    inf.innerHTML = '';
+    String(m.privacy || '').split(/\n\s*\n/).map(p => p.trim()).filter(Boolean).forEach(t => { const p = document.createElement('p'); p.textContent = t; inf.appendChild(p); });
+    if (!inf.children.length) inf.textContent = 'Informativa disponibile presso lo sportello.';
+    $('#caricamento').classList.add('nascosto');
+    $('#modulo').classList.remove('nascosto');
+  } catch (e) {
+    $('#caricamento').className = 'messaggio errore';
+    $('#caricamento').innerHTML = 'Il modulo non si è caricato. Controlla la connessione. <button type="button" class="btn" id="riprova" style="margin-left:8px">Riprova</button>';
+    $('#riprova').onclick = carica;
   }
+}
 
-  // Menu di suggerimenti filtrato mentre si scrive, al posto del menu
-  // nativo del browser, cosi il valore scelto corrisponde sempre a un
-  // comune vero, con provincia, ed e sempre chiaro cosa selezionare.
-  function collegaSuggerimentiComune(input, box) {
-    const MAX_RISULTATI = 8;
-    let indiceAttivo = -1;
-
-    function elenca(testo) {
-      box.innerHTML = '';
-      indiceAttivo = -1;
-      if (!testo || testo.length < 2 || typeof COMUNI_CATASTALI === 'undefined') {
-        box.classList.remove('visibile');
-        return;
-      }
-      const cercato = testo.toLowerCase();
-      const risultati = Object.keys(COMUNI_CATASTALI)
-        .filter(nome => nome.toLowerCase().includes(cercato))
-        .sort((a, b) => {
-          const ai = a.toLowerCase().indexOf(cercato);
-          const bi = b.toLowerCase().indexOf(cercato);
-          return ai - bi || a.length - b.length;
-        })
-        .slice(0, MAX_RISULTATI);
-      if (risultati.length === 0) {
-        box.classList.remove('visibile');
-        return;
-      }
-      risultati.forEach(nome => {
-        const voce = document.createElement('div');
-        voce.textContent = nome;
-        voce.addEventListener('mousedown', (e) => {
-          e.preventDefault();
-          input.value = nome;
-          box.classList.remove('visibile');
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-          input.dispatchEvent(new Event('change', { bubbles: true }));
-        });
-        box.appendChild(voce);
-      });
-      box.classList.add('visibile');
+const chiave = c => ((c.nome || '') + ' ' + (c.etichetta || '')).toLowerCase();
+function disegnaCampi() {
+  const box = $('#campi-altri');
+  box.innerHTML = '';
+  for (const c of campiModulo) {
+    const id = 'c-' + c.nome;
+    const k = chiave(c);
+    const intero = c.tipo === 'textarea' || /indirizzo|oggetto|osservazion|note/.test(k);
+    if (c.tipo === 'checkbox') {
+      const l = document.createElement('label'); l.className = 'spunta intero';
+      const i = document.createElement('input'); i.type = 'checkbox'; i.id = id;
+      const s = document.createElement('span'); s.textContent = c.etichetta;
+      l.append(i, s); box.appendChild(l); continue;
     }
-
-    input.addEventListener('input', () => elenca(input.value));
-    input.addEventListener('focus', () => { if (input.value) elenca(input.value); });
-    input.addEventListener('blur', () => box.classList.remove('visibile'));
-    input.addEventListener('keydown', (e) => {
-      const voci = box.querySelectorAll('div');
-      if (!voci.length) return;
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        indiceAttivo = Math.min(indiceAttivo + 1, voci.length - 1);
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        indiceAttivo = Math.max(indiceAttivo - 1, 0);
-      } else if (e.key === 'Enter' && indiceAttivo >= 0) {
-        e.preventDefault();
-        voci[indiceAttivo].dispatchEvent(new Event('mousedown'));
-        return;
-      } else {
-        return;
-      }
-      voci.forEach((v, i) => v.classList.toggle('attivo', i === indiceAttivo));
-    });
-  }
-
-  // --- Calcolo del codice fiscale, per confronto con quanto digitato ---
-  // Algoritmo standard, basato su cognome, nome, sesso, data e comune di
-  // nascita. Se il comune indicato non e tra quelli italiani noti (per
-  // esempio nascite all'estero), il controllo viene saltato in silenzio,
-  // senza generare falsi avvisi.
-
-  function normalizzaTesto(s) {
-    return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z]/g, '');
-  }
-
-  function estraiConsonantiVocali(s) {
-    const norm = normalizzaTesto(s);
-    const vocali = 'AEIOU';
-    let consonanti = '', vocaliTrovate = '';
-    for (const ch of norm) {
-      if (vocali.includes(ch)) vocaliTrovate += ch; else consonanti += ch;
+    const l = document.createElement('label'); l.className = 'campo' + (intero ? ' intero' : '');
+    const e = document.createElement('span'); e.className = 'etichetta'; e.textContent = c.etichetta + ' ';
+    if (c.obbligatorio) { const o = document.createElement('span'); o.className = 'obbl'; o.textContent = '*'; e.appendChild(o); }
+    l.appendChild(e);
+    let inp;
+    if (c.tipo === 'select') {
+      inp = document.createElement('select');
+      inp.appendChild(new Option('Scegli...', ''));
+      String(c.opzioni || '').split(',').map(x => x.trim()).filter(Boolean).forEach(o => inp.appendChild(new Option(o, o)));
+    } else if (c.tipo === 'textarea') { inp = document.createElement('textarea'); inp.rows = 3; inp.maxLength = 1000; }
+    else {
+      inp = document.createElement('input');
+      inp.type = c.tipo === 'data' ? 'date' : c.tipo === 'numero' ? 'number' : /mail/.test(k) ? 'email' : /telefono|cellulare/.test(k) ? 'tel' : 'text';
+      inp.maxLength = 1000;
+      if (/mail/.test(k)) { inp.autocomplete = 'email'; inp.placeholder = 'nome@esempio.it'; }
+      if (/telefono|cellulare/.test(k)) inp.autocomplete = 'tel';
+      if (/^cap\b|\bcap$/.test(k.trim()) || c.nome === 'cap') { inp.inputMode = 'numeric'; inp.maxLength = 5; }
     }
-    return { consonanti, vocali: vocaliTrovate };
-  }
-
-  function codiceCognome(cognome) {
-    const { consonanti, vocali } = estraiConsonantiVocali(cognome);
-    return (consonanti + vocali + 'XXX').slice(0, 3);
-  }
-
-  function codiceNome(nome) {
-    const { consonanti, vocali } = estraiConsonantiVocali(nome);
-    if (consonanti.length >= 4) return consonanti[0] + consonanti[2] + consonanti[3];
-    return (consonanti + vocali + 'XXX').slice(0, 3);
-  }
-
-  const MESI_CF = { 1: 'A', 2: 'B', 3: 'C', 4: 'D', 5: 'E', 6: 'H', 7: 'L', 8: 'M', 9: 'P', 10: 'R', 11: 'S', 12: 'T' };
-
-  const VALORI_DISPARI = {
-    '0': 1, '1': 0, '2': 5, '3': 7, '4': 9, '5': 13, '6': 15, '7': 17, '8': 19, '9': 21,
-    A: 1, B: 0, C: 5, D: 7, E: 9, F: 13, G: 15, H: 17, I: 19, J: 21, K: 2, L: 4, M: 18,
-    N: 20, O: 11, P: 3, Q: 6, R: 8, S: 12, T: 14, U: 16, V: 10, W: 22, X: 25, Y: 24, Z: 23
-  };
-  const VALORI_PARI = {
-    '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9,
-    A: 0, B: 1, C: 2, D: 3, E: 4, F: 5, G: 6, H: 7, I: 8, J: 9, K: 10, L: 11, M: 12,
-    N: 13, O: 14, P: 15, Q: 16, R: 17, S: 18, T: 19, U: 20, V: 21, W: 22, X: 23, Y: 24, Z: 25
-  };
-  const LETTERE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-
-  function carattereControllo(quindici) {
-    let somma = 0;
-    for (let i = 0; i < 15; i++) {
-      const ch = quindici[i];
-      somma += (i % 2 === 0) ? VALORI_DISPARI[ch] : VALORI_PARI[ch];
+    inp.id = id;
+    if (/(comune|luogo) di residenza/.test(k)) {
+      const w = document.createElement('div'); w.className = 'comune';
+      const s = document.createElement('div'); s.className = 'suggerimenti';
+      inp.autocomplete = 'off'; inp.placeholder = "Inizia a scrivere e scegli dall'elenco";
+      w.append(inp, s); l.appendChild(w); collegaComuni(inp, s);
+    } else l.appendChild(inp);
+    if (/provincia di residenza/.test(k)) {
+      inp.readOnly = true; inp.tabIndex = -1; inp.placeholder = 'Si compila da sola';
+      const n = document.createElement('span'); n.className = 'nota'; n.textContent = 'Si compila scegliendo il comune di residenza dall\'elenco.'; l.appendChild(n);
     }
-    return LETTERE[somma % 26];
+    box.appendChild(l);
   }
-
-  // Calcola il codice fiscale atteso. Ritorna null se manca il comune
-  // nell'elenco noto (es. nato all'estero) o se i dati sono incompleti.
-  function calcolaCodiceFiscale({ cognome, nome, sesso, dataNascita, comuneNascita }) {
-    if (!cognome || !nome || !sesso || !dataNascita || !comuneNascita) return null;
-    const catastale = COMUNI_CATASTALI[comuneNascita.trim()];
-    if (!catastale) return null;
-    const d = new Date(dataNascita);
-    if (isNaN(d)) return null;
-    const anno = String(d.getUTCFullYear()).slice(-2);
-    const mese = MESI_CF[d.getUTCMonth() + 1];
-    let giorno = d.getUTCDate();
-    if (sesso.toUpperCase() === 'F') giorno += 40;
-    const giornoStr = String(giorno).padStart(2, '0');
-    const quindici = codiceCognome(cognome) + codiceNome(nome) + anno + mese + giornoStr + catastale;
-    return quindici + carattereControllo(quindici);
+  $('#riquadro-altri').classList.toggle('nascosto', !campiModulo.length);
+  // provincia di residenza dal comune scelto, es. "Roma (RM)"
+  const comuneRes = campiModulo.find(c => /(comune|luogo) di residenza/.test(chiave(c)));
+  const provRes = campiModulo.find(c => /provincia di residenza/.test(chiave(c)));
+  if (comuneRes && provRes) {
+    const a = document.getElementById('c-' + comuneRes.nome), b = document.getElementById('c-' + provRes.nome);
+    const agg = () => { const m = /\(([A-Za-z]{2})\)\s*$/.exec(a.value || ''); b.value = m ? m[1].toUpperCase() : ''; };
+    a.addEventListener('input', agg); a.addEventListener('change', agg);
   }
+}
 
-  // I dati anagrafici sono campi fissi con id noto: niente ricerca, si
-  // aggancia direttamente. Finche il codice fiscale non viene toccato a
-  // mano, si ricompila da solo a ogni modifica di uno di questi campi.
-  // Da quel momento in poi resta libero, e si limita a segnalare
-  // un'eventuale incongruenza.
-  function collegaControlloCodiceFiscale() {
-    const inputCognome = document.getElementById('c_cognome');
-    const inputNome = document.getElementById('c_nome');
-    const inputSesso = document.getElementById('c_sesso');
-    const inputData = document.getElementById('c_data_nascita');
-    const inputComune = document.getElementById('c_comune_nascita');
-    const inputCF = document.getElementById('c_codice_fiscale');
-    const avviso = document.getElementById('avvisoCF');
-    if (!inputCognome || !inputNome || !inputSesso || !inputData || !inputComune || !inputCF || !avviso) return;
-
-    const datiAnagrafici = () => ({
-      cognome: inputCognome.value,
-      nome: inputNome.value,
-      sesso: inputSesso.value,
-      dataNascita: inputData.value,
-      comuneNascita: inputComune.value
-    });
-    const mostraAvviso = (atteso) => {
-      avviso.textContent = `Il codice fiscale digitato non corrisponde ai dati inseriti. In base a cognome, nome, sesso, data e comune di nascita dovrebbe essere ${atteso}.`;
-      avviso.classList.add('visibile');
-    };
-    const nascondiAvviso = () => avviso.classList.remove('visibile');
-    const confrontaOAggiorna = (sovrascriviSeAutomatico) => {
-      const atteso = calcolaCodiceFiscale(datiAnagrafici());
-      if (sovrascriviSeAutomatico && inputCF.dataset.manuale !== 'true') {
-        if (atteso) { inputCF.value = atteso; nascondiAvviso(); }
-        return;
-      }
-      const digitato = (inputCF.value || '').trim().toUpperCase();
-      if (!atteso || !digitato) { nascondiAvviso(); return; }
-      if (digitato !== atteso) mostraAvviso(atteso); else nascondiAvviso();
-    };
-
-    [inputCognome, inputNome, inputSesso, inputData, inputComune].forEach(el => {
-      el.addEventListener('input', () => confrontaOAggiorna(true));
-      el.addEventListener('change', () => confrontaOAggiorna(true));
-    });
-    inputCF.addEventListener('input', () => {
-      inputCF.dataset.manuale = 'true';
-      confrontaOAggiorna(false);
-    });
-
-    // Pulsante Calcola: forza il calcolo e riscrive il campo anche se in
-    // precedenza era stato modificato a mano, utile se per qualche motivo
-    // la compilazione automatica non fosse partita da sola.
-    const btnCalcola = document.getElementById('btnCalcolaCF');
-    if (btnCalcola) {
-      btnCalcola.addEventListener('click', () => {
-        const atteso = calcolaCodiceFiscale(datiAnagrafici());
-        if (!atteso) {
-          avviso.textContent = 'Compila cognome, nome, sesso, data e comune di nascita, scegliendo il comune dal menu di suggerimenti, poi premi di nuovo Calcola.';
-          avviso.classList.add('visibile');
-          return;
-        }
-        inputCF.value = atteso;
-        inputCF.dataset.manuale = 'false';
-        nascondiAvviso();
-      });
+// --- elenco dei comuni mentre si scrive ---
+function collegaComuni(input, box) {
+  let attivo = -1;
+  const tutti = typeof COMUNI_CATASTALI !== 'undefined' ? Object.keys(COMUNI_CATASTALI) : [];
+  const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  function elenca() {
+    box.innerHTML = ''; attivo = -1;
+    const t = norm(input.value.trim());
+    if (t.length < 2) { box.classList.remove('visibile'); return; }
+    const trovati = tutti.filter(n => norm(n).includes(t)).sort((a, b) => norm(a).indexOf(t) - norm(b).indexOf(t) || a.length - b.length).slice(0, 8);
+    for (const n of trovati) {
+      const d = document.createElement('div'); d.textContent = n;
+      d.addEventListener('mousedown', e => { e.preventDefault(); input.value = n; box.classList.remove('visibile'); input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true })); });
+      box.appendChild(d);
     }
+    box.classList.toggle('visibile', trovati.length > 0);
   }
-
-  // Cerca fra tutti i campi presenti, fissi o configurati dall'admin,
-  // quello la cui etichetta o nome interno corrisponde a una delle parole
-  // chiave. Prova prima una corrispondenza esatta.
-  function trovaCampoGenerico(parole) {
-    const tutti = [...CAMPI_FISSI, ...campiCorrenti];
-    for (const c of tutti) {
-      const nome = (c.nome || '').toLowerCase();
-      const etichetta = (c.etichetta || '').toLowerCase();
-      if (parole.includes(nome) || parole.includes(etichetta)) return document.getElementById('c_' + c.nome);
-    }
-    for (const c of tutti) {
-      const chiave = ((c.nome || '') + ' ' + (c.etichetta || '')).toLowerCase();
-      if (parole.some(p => chiave.includes(p))) return document.getElementById('c_' + c.nome);
-    }
-    return null;
-  }
-
-  // Estrae la sigla della provincia dal comune scelto, es. "Roma (RM)" -> "RM",
-  // e la scrive nel campo Provincia di residenza, se presente. Il campo e
-  // disabilitato, quindi resta sempre e solo compilato in automatico.
-  function collegaProvinciaResidenza() {
-    const inputComune = trovaCampoGenerico(['comune di residenza']);
-    const inputProvincia = trovaCampoGenerico(['provincia di residenza']);
-    if (!inputComune || !inputProvincia) return;
-
-    const aggiorna = () => {
-      const corrispondenza = (inputComune.value || '').match(/\(([A-Za-z]{2})\)\s*$/);
-      inputProvincia.value = corrispondenza ? corrispondenza[1].toUpperCase() : '';
-    };
-    inputComune.addEventListener('input', aggiorna);
-    inputComune.addEventListener('change', aggiorna);
-  }
-
-  async function caricaInformativa() {
-    const container = document.getElementById('testoInformativa');
-    try {
-      const res = await fetch(BACKEND_URL + '?action=getPrivacy');
-      const data = await res.json();
-      const paragrafi = (data.testo || '').split('\n\n').filter(p => p.trim());
-      container.innerHTML = '';
-      paragrafi.forEach(testo => {
-        const p = document.createElement('p');
-        p.textContent = testo;
-        container.appendChild(p);
-      });
-    } catch (err) {
-      container.innerHTML = '<p>Errore nel caricamento dell\'informativa. Riprova più tardi.</p>';
-    }
-  }
-
-  async function caricaForm() {
-    // Campi fissi, sempre presenti, indipendenti dal backend
-    camposFissiEl.innerHTML = '';
-    CAMPI_FISSI.forEach(c => camposFissiEl.appendChild(creaCampo(c)));
-    collegaControlloCodiceFiscale();
-
-    // Campi aggiuntivi, configurati dall'admin
-    try {
-      const res = await fetch(BACKEND_URL + '?action=getForm');
-      const data = await res.json();
-      campiCorrenti = data.campi || [];
-      camposEl.innerHTML = '';
-      campiCorrenti.forEach(c => camposEl.appendChild(creaCampo(c)));
-      document.getElementById('sezioneDinamica').style.display = campiCorrenti.length ? '' : 'none';
-      collegaProvinciaResidenza();
-      const btn = document.createElement('button');
-      btn.type = 'submit';
-      btn.textContent = 'Invia iscrizione';
-      formEl.appendChild(btn);
-    } catch (err) {
-      document.getElementById('sezioneDinamica').style.display = 'none';
-      esitoEl.innerHTML = '<span class="errore">Errore nel caricamento del modulo. Riprova più tardi.</span>';
-    }
-  }
-
-  formEl.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const btn = formEl.querySelector('button');
-    btn.disabled = true;
-    btn.textContent = 'Invio in corso...';
-    esitoEl.innerHTML = '';
-
-    const dati = {};
-    [...CAMPI_FISSI, ...campiCorrenti].forEach(c => {
-      const el = document.getElementById('c_' + c.nome);
-      dati[c.etichetta] = c.tipo === 'checkbox' ? (el.checked ? 'Si' : 'No') : el.value;
-    });
-    dati['Consenso privacy'] = document.getElementById('consensoPrivacy').checked ? 'Accettato' : 'Non accettato';
-
-    // Un campo data dovrebbe sempre arrivare gia nel formato AAAA-MM-GG,
-    // garantito dal calendario nativo del browser. Ma su alcuni telefoni
-    // o browser piu vecchi, se il calendario non e supportato, il campo
-    // torna un semplice testo libero: un suggerimento di completamento
-    // automatico del telefono puo allora incollarsi dentro senza
-    // sostituire quello che c'era gia scritto, producendo un valore
-    // incoerente tipo "212001-08-09" invece di "2001-08-09" (caso reale
-    // successo, cliente iscritto con data di nascita cosi sballata).
-    // Si blocca l'invio invece di lasciar passare un dato del genere.
-    let campoDataNonValido = null;
-    [...CAMPI_FISSI, ...campiCorrenti].forEach(c => {
-      const chiave = ((c.nome || '') + ' ' + (c.etichetta || '')).toLowerCase();
-      const eCampoData = c.tipo === 'data' || chiave.includes('data di nascita');
-      if (!eCampoData || campoDataNonValido) return;
-      const valore = dati[c.etichetta];
-      if (valore && !/^\d{4}-\d{2}-\d{2}$/.test(valore)) campoDataNonValido = c.etichetta;
-    });
-    if (campoDataNonValido) {
-      esitoEl.innerHTML = `<span class="errore">Il campo "${campoDataNonValido}" non contiene una data valida, prova a riselezionarla dal calendario invece di scriverla a mano.</span>`;
-      btn.disabled = false;
-      btn.textContent = 'Invia iscrizione';
-      return;
-    }
-
-    // Solo qui, dopo il controllo qui sopra sul formato AAAA-MM-GG che
-    // arriva dal calendario nativo, si converte in GG/MM/AAAA, il
-    // formato in cui le date vengono lette, mostrate e salvate.
-    [...CAMPI_FISSI, ...campiCorrenti].forEach(c => {
-      const chiave = ((c.nome || '') + ' ' + (c.etichetta || '')).toLowerCase();
-      const eCampoData = c.tipo === 'data' || chiave.includes('data di nascita');
-      if (!eCampoData) return;
-      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dati[c.etichetta] || '');
-      if (m) dati[c.etichetta] = `${m[3]}/${m[2]}/${m[1]}`;
-    });
-
-    // Il server a volte risponde con qualche secondo di ritardo: si
-    // aspetta piu del solito prima di dichiarare un vero errore di
-    // connessione, invece di far credere subito che l'invio sia fallito.
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-    try {
-      const res = await fetch(BACKEND_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'submit', dati }),
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-      const result = await res.json();
-      if (result.ok) {
-        // Il modulo sparisce del tutto, non solo si svuota: cosi non e
-        // piu possibile inviarlo una seconda volta, l'unico modo per
-        // farlo e ricaricare la pagina da capo.
-        formEl.style.display = 'none';
-        esitoEl.innerHTML = '';
-        document.getElementById('schermataSuccesso').classList.remove('nascosto');
-        return;
-      } else if (result.duplicato) {
-        esitoEl.innerHTML = '<span class="errore">Risulta gia registrata un\'iscrizione con questo codice fiscale. Se pensi sia un errore, parlane con lo sportello, senza inviare di nuovo il modulo.</span>';
-      } else {
-        esitoEl.innerHTML = '<span class="errore">Si è verificato un errore, riprova.</span>';
-      }
-    } catch (err) {
-      esitoEl.innerHTML = '<span class="errore">Errore di connessione. Se hai gia provato piu volte, non serve inviare ancora, chiedi conferma allo sportello prima di riprovare.</span>';
-    } finally {
-      clearTimeout(timeoutId);
-      btn.disabled = false;
-      btn.textContent = 'Invia iscrizione';
-    }
+  input.addEventListener('input', e => { if (e.isTrusted) elenca(); });
+  input.addEventListener('blur', () => box.classList.remove('visibile'));
+  input.addEventListener('keydown', e => {
+    const voci = box.querySelectorAll('div');
+    if (!voci.length || !box.classList.contains('visibile')) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); attivo = Math.min(attivo + 1, voci.length - 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); attivo = Math.max(attivo - 1, 0); }
+    else if (e.key === 'Enter' && attivo >= 0) { e.preventDefault(); voci[attivo].dispatchEvent(new Event('mousedown')); return; }
+    else return;
+    voci.forEach((v, i) => v.classList.toggle('attivo', i === attivo));
   });
+}
 
-  caricaForm();
-  caricaInformativa();
+// --- codice fiscale: si compila da solo finché non lo si corregge a mano ---
+let cfAMano = false;
+const fissi = () => ({ cognome: $('#f-cognome').value.trim(), nome: $('#f-nome').value.trim(), sesso: $('#f-sesso').value, dataNascita: $('#f-data').value, comuneNascita: $('#f-comune').value.trim() });
+function aggiornaCf() {
+  const calcolato = CodiceFiscale.calcola(fissi());
+  const campo = $('#f-cf'), nota = $('#nota-cf');
+  if (!cfAMano && calcolato) campo.value = calcolato;
+  const v = CodiceFiscale.pulisci(campo.value);
+  nota.className = 'nota';
+  if (!v) nota.textContent = 'Si compila da solo con i dati qui sopra. Si può correggere a mano.';
+  else if (!CodiceFiscale.valido(v)) { nota.textContent = 'Il codice fiscale non sembra giusto: controlla le 16 lettere e cifre.'; nota.className = 'nota errore'; }
+  else if (calcolato && !CodiceFiscale.corrisponde(v, fissi())) { nota.textContent = 'Dai dati inseriti risulterebbe ' + calcolato + '. Se il tuo codice è diverso va bene lo stesso.'; nota.className = 'nota avviso'; }
+  else nota.textContent = calcolato ? 'Calcolato dai dati inseriti.' : 'Codice valido.';
+}
+collegaComuni($('#f-comune'), document.querySelector('#f-comune + .suggerimenti'));
+['#f-cognome', '#f-nome', '#f-data', '#f-comune'].forEach(s => $(s).addEventListener('input', aggiornaCf));
+['#f-sesso', '#f-data', '#f-comune'].forEach(s => $(s).addEventListener('change', aggiornaCf));
+$('#f-cf').addEventListener('input', () => { cfAMano = true; $('#f-cf').value = $('#f-cf').value.toUpperCase(); aggiornaCf(); });
+$('#calcola-cf').onclick = () => {
+  const c = CodiceFiscale.calcola(fissi());
+  if (!c) { const n = $('#nota-cf'); n.textContent = 'Compila cognome, nome, sesso, data e comune di nascita, scegliendo il comune dall\'elenco, poi premi di nuovo Calcola.'; n.className = 'nota errore'; return; }
+  cfAMano = false; $('#f-cf').value = c; aggiornaCf();
+};
+
+// --- invio ---
+// L'identificativo si sceglie una volta sola: se la rete si interrompe e si riprova, Firebase rifiuta il secondo
+// invio con lo stesso codice, e allora vuol dire che il primo era già arrivato.
+const nuovoId = () => { const c = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'; const b = new Uint8Array(24); crypto.getRandomValues(b); return Array.from(b, x => c[x % c.length]).join(''); };
+let idInvio = nuovoId(), tentativi = 0;
+const errore = t => { $('#esito').innerHTML = ''; if (!t) return; const d = document.createElement('div'); d.className = 'messaggio errore'; d.textContent = t; $('#esito').appendChild(d); d.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+function raccogli() {
+  const f = fissi();
+  const d = { cognome: f.cognome, nome: f.nome, sesso: f.sesso, dataNascita: f.dataNascita, comuneNascita: f.comuneNascita, codiceFiscale: CodiceFiscale.pulisci($('#f-cf').value) };
+  const mancanti = [];
+  if (!d.cognome) mancanti.push('Cognome'); if (!d.nome) mancanti.push('Nome'); if (!d.sesso) mancanti.push('Sesso');
+  if (!d.dataNascita) mancanti.push('Data di nascita'); if (!d.comuneNascita) mancanti.push('Comune di nascita o stato estero'); if (!d.codiceFiscale) mancanti.push('Codice fiscale');
+  for (const c of campiModulo) {
+    const el = document.getElementById('c-' + c.nome);
+    if (!el) continue;
+    const v = c.tipo === 'checkbox' ? el.checked : el.value.trim();
+    if (c.obbligatorio && c.tipo !== 'checkbox' && !v) mancanti.push(c.etichetta);
+    if (v !== '' && v !== false) d[c.nome] = v;
+    if (c.tipo === 'checkbox') d[c.nome] = v;
+  }
+  if (mancanti.length) throw new Error('Mancano: ' + mancanti.join(', ') + '.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d.dataNascita) || d.dataNascita < '1900-01-01' || d.dataNascita > new Date().toISOString().slice(0, 10)) throw new Error('La data di nascita non è valida: sceglila dal calendario.');
+  if (!CodiceFiscale.valido(d.codiceFiscale)) throw new Error('Il codice fiscale non sembra giusto: controlla le 16 lettere e cifre.');
+  for (const c of campiModulo) {
+    const v = d[c.nome];
+    if (typeof v === 'string' && /mail/.test(chiave(c)) && c.tipo !== 'checkbox' && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)) throw new Error('L\'indirizzo email non sembra giusto, es. nome@esempio.it');
+    if (typeof v === 'string' && c.tipo === 'data' && !/^\d{4}-\d{2}-\d{2}$/.test(v)) throw new Error(`"${c.etichetta}" non è una data valida: sceglila dal calendario.`);
+  }
+  if (!$('#f-consenso').checked) throw new Error('Per inviare serve il consenso al trattamento dei dati.');
+  d.consensoPrivacy = true;
+  return d;
+}
+function fatto() { $('#modulo').classList.add('nascosto'); $('#successo').classList.remove('nascosto'); window.scrollTo(0, 0); }
+$('#modulo').addEventListener('submit', async e => {
+  e.preventDefault();
+  errore('');
+  let dati;
+  try { dati = raccogli(); } catch (x) { errore(x.message); return; }
+  if ($('#f-sito').value) { fatto(); return; } // compilato da un programma automatico: non si manda niente
+  const b = $('#invia');
+  b.disabled = true; b.textContent = 'Invio in corso...';
+  tentativi++;
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 30000);
+  try {
+    const r = await fetch(`${FIREBASE_URL}/inArrivo/${idInvio}.json`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, signal: ctrl.signal,
+      body: JSON.stringify({ ricevuto: { '.sv': 'timestamp' }, versioneModulo: VERSIONE_MODULO, dati })
+    });
+    if (r.ok || (tentativi > 1 && (r.status === 401 || r.status === 403))) { fatto(); return; }
+    errore('L\'invio non è riuscito (errore ' + r.status + '). Riprova; se non funziona, avvisa lo sportello.');
+  } catch (x) {
+    errore('Connessione assente o troppo lenta. Controlla la rete e premi di nuovo Invia: l\'iscrizione non verrà registrata due volte.');
+  } finally { clearTimeout(t); b.disabled = false; b.textContent = 'Invia iscrizione'; }
+});
+
+aggiornaCf();
+carica();
 </script>
 </body>
 </html>
