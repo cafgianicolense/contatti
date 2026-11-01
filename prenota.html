@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prenota un appuntamento, CAF Gianicolense</title>
+<link rel="icon" href="logo.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fjalla+One&display=swap">
+<!--
+  Prenotazione online del CAF Gianicolense (4.1.0 del portale, 1 novembre 2026). Sta su GitHub Pages accanto al modulo
+  di iscrizione (index.html), con logo.png, comuni.js e cf.js.
+  Legge da Firebase servizi e orari liberi (/prenota/pubblico, /prenota/liberi, /prenota/presi, li pubblica il portale)
+  e i campi del modulo (/modulo). Lascia la richiesta in /prenota/richieste prendendo l'orario in /prenota/presi nello
+  stesso momento, così due persone non prendono lo stesso orario. Con ?c=codice (link delle mail) mostra lo stato
+  dell'appuntamento e permette di ritirare la richiesta, disdire o scegliere tra gli orari proposti.
+  Qui c'è solo l'indirizzo del database, che non è segreto. La chiave del database non va MAI messa in questo file.
+  Sulla pagina e nelle mail non compaiono mai i nomi di chi riceve: sempre "CAF Gianicolense".
+-->
+<style>
+  :root {
+    color-scheme: light only;
+    --blu: #173a7a; --blu-chiaro: #2f5fb3; --blu-bordo: #a9c0e6; --blu-tinta: #e3ecfa;
+    --sfondo: #eaf0fa; --bordo: #c3d3ec; --gruppo-tinta: #dde7f6;
+    --verde: #16a370; --verde-tinta: #e0f5ec; --arancio: #d2601a; --arancio-tinta: #fdeedd;
+    --rosso: #c22a2a; --rosso-tinta: #fbe8e4; --testo: #152238; --testo-tenue: #52627c;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; background: var(--sfondo); color: var(--testo); font-size: 16px; line-height: 1.4; }
+  .pagina { max-width: 680px; margin: 0 auto; padding: 20px 16px 40px; }
+  .testata { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
+  .testata img { height: 58px; width: auto; background: #fff; border-radius: 10px; padding: 6px 10px; box-shadow: 0 3px 8px rgba(55, 80, 127, .22); }
+  h1 { font-family: 'Fjalla One', 'Arial Narrow', Arial, sans-serif; text-transform: uppercase; font-weight: 400; color: var(--blu); font-size: 28px; line-height: 1.05; margin: 0; }
+  .testata > div { min-width: 0; } h1 { overflow-wrap: anywhere; }
+  .sottotitolo { color: var(--blu-chiaro); font-weight: 600; font-size: 14px; margin-top: 4px; }
+  .riquadro { background: #fff; border: 1px solid var(--bordo); border-radius: 12px; padding: 18px 18px 8px; margin-bottom: 14px; }
+  h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .04em; color: var(--blu); margin: 0 0 14px; }
+  .passo { display: inline-block; background: var(--blu); color: #fff; border-radius: 50%; width: 24px; height: 24px; line-height: 24px; text-align: center; font-size: 13px; margin-right: 6px; }
+  .campo { display: block; margin-bottom: 14px; font-size: 14px; font-weight: 600; color: var(--testo); }
+  .campo > span.etichetta { display: block; margin-bottom: 5px; }
+  .obbl { color: var(--rosso); }
+  input[type=text], input[type=email], input[type=tel], input[type=date], input[type=number], select, textarea {
+    width: 100%; font: inherit; font-weight: 400; font-size: 16px; padding: 10px 11px; border: 1px solid var(--bordo); border-radius: 8px; background: #fff; color: var(--testo);
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--blu-chiaro); box-shadow: 0 0 0 3px rgba(78, 106, 169, .15); }
+  input[readonly] { background: var(--gruppo-tinta); color: var(--testo-tenue); }
+  .griglia { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+  .griglia .intero { grid-column: 1 / -1; }
+  @media (max-width: 520px) { .griglia { grid-template-columns: 1fr; } h1 { font-size: 24px; } .testata img { height: 48px; } }
+  .nota { display: block; font-size: 13px; font-weight: 400; color: var(--testo-tenue); margin-top: 5px; }
+  .nota.errore { color: var(--rosso); }
+  .nota.avviso { color: #7a4a00; }
+  .riga-cf { display: flex; gap: 8px; }
+  .riga-cf input { text-transform: uppercase; letter-spacing: .04em; }
+  .btn { font: inherit; font-weight: 600; border-radius: 8px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--bordo); background: #fff; color: var(--testo); }
+  .btn:hover { border-color: var(--blu-chiaro); }
+  .btn-primario { background: var(--blu); border-color: var(--blu); color: #fff; width: 100%; font-size: 17px; padding: 14px; }
+  .btn-primario:hover { background: var(--blu-chiaro); }
+  .btn-primario:disabled { opacity: .6; cursor: default; }
+  .btn-pericolo { background: var(--rosso); border-color: var(--rosso); color: #fff; width: 100%; font-size: 17px; padding: 14px; }
+  .btn-link { background: none; border: none; color: var(--blu-chiaro); text-decoration: underline; padding: 6px 0; cursor: pointer; font: inherit; }
+  .spunta { display: flex; gap: 10px; align-items: flex-start; font-weight: 400; margin-bottom: 14px; font-size: 15px; cursor: pointer; }
+  .spunta input { width: 20px; height: 20px; margin: 1px 0 0; flex: none; accent-color: var(--blu); }
+  .informativa { max-height: 220px; overflow-y: auto; background: var(--sfondo); border: 1px solid var(--bordo); border-radius: 8px; padding: 4px 14px; font-size: 13.5px; color: #4a443d; margin-bottom: 14px; }
+  .comune { position: relative; }
+  .suggerimenti { position: absolute; left: 0; right: 0; top: 100%; margin-top: 2px; background: #fff; border: 1px solid var(--bordo); border-radius: 8px; box-shadow: 0 10px 24px rgba(0, 0, 0, .15); z-index: 10; display: none; max-height: 260px; overflow-y: auto; font-weight: 400; }
+  .suggerimenti.visibile { display: block; }
+  .suggerimenti div { padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #dbe5f4; }
+  .suggerimenti div:hover, .suggerimenti div.attivo { background: var(--blu-tinta); }
+  .messaggio { border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; font-size: 15px; }
+  .messaggio.errore { background: var(--rosso-tinta); border: 1px solid var(--rosso); color: #7a1f10; }
+  .messaggio.attesa { background: var(--blu-tinta); border: 1px solid var(--blu-bordo); color: var(--blu); }
+  .messaggio.ok { background: var(--verde-tinta); border: 1px solid var(--verde); color: #0d6b4a; }
+  .servizi { display: grid; gap: 8px; margin-bottom: 10px; }
+  .servizio { text-align: left; border: 1px solid var(--bordo); border-radius: 10px; background: #fff; padding: 12px 14px; cursor: pointer; font: inherit; color: var(--testo); }
+  .servizio:hover { border-color: var(--blu-chiaro); background: var(--blu-tinta); }
+  .servizio b { display: block; color: var(--blu); font-size: 16px; }
+  .servizio small { color: var(--testo-tenue); font-size: 13.5px; }
+  .scelta-fatta { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: var(--blu-tinta); border: 1px solid var(--blu-bordo); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-weight: 600; color: var(--blu); }
+  .giorno { margin-bottom: 14px; }
+  .giorno-titolo { font-weight: 700; color: var(--blu); margin-bottom: 6px; }
+  .giorno-titolo::first-letter { text-transform: uppercase; }
+  .ore { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ora { border: 1px solid var(--blu-bordo); background: #fff; color: var(--blu); border-radius: 8px; padding: 8px 12px; font: inherit; font-weight: 700; cursor: pointer; }
+  .ora:hover { background: var(--blu-tinta); }
+  .tipi { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .tipo { border: 2px solid var(--bordo); border-radius: 10px; background: #fff; padding: 14px; font: inherit; font-weight: 700; color: var(--blu); cursor: pointer; }
+  .tipo.attivo { border-color: var(--blu); background: var(--blu-tinta); }
+  .successo { text-align: center; padding: 30px 18px; }
+  .successo .segno { width: 72px; height: 72px; border-radius: 50%; background: var(--verde-tinta); color: var(--verde); font-size: 40px; line-height: 72px; margin: 0 auto 16px; }
+  .successo h1 { font-size: 28px; margin-bottom: 10px; }
+  .successo p { color: var(--testo-tenue); margin: 0 0 14px; }
+  .nascosto { display: none !important; }
+  .hp { position: absolute; left: -5000px; width: 1px; height: 1px; overflow: hidden; }
+  .piede { text-align: center; font-size: 12px; color: var(--testo-tenue); margin-top: 18px; }
+  .proposte label { display: flex; gap: 10px; align-items: center; border: 1px solid var(--bordo); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; cursor: pointer; font-weight: 600; color: var(--blu); }
+  .proposte input { width: 20px; height: 20px; accent-color: var(--blu); }
+</style>
+</head>
+<body>
+<div class="pagina">
+  <div class="testata">
+    <img src="logo.png" alt="CAF Gianicolense">
+    <div><h1 id="titolo">Prenota un appuntamento</h1><div class="sottotitolo">CAF Gianicolense</div></div>
+  </div>
+
+  <div id="caricamento" class="messaggio attesa">Caricamento...</div>
+
+  <!-- prenotazione -->
+  <div id="prenota" class="nascosto">
+    <div class="riquadro" id="passo-servizio">
+      <h2><span class="passo">1</span>Per quale servizio?</h2>
+      <div class="servizi" id="servizi"></div>
+    </div>
+    <div class="riquadro nascosto" id="passo-ora">
+      <h2><span class="passo">2</span>Giorno e ora</h2>
+      <div class="scelta-fatta"><span id="scelto-servizio"></span><button type="button" class="btn-link" data-torna="servizio">cambia</button></div>
+      <div id="giorni"></div>
+      <button type="button" class="btn" id="altri-giorni">Altri giorni</button>
+      <p class="nota" style="margin-bottom:12px">Se non trovi un orario adatto, chiamaci allo <b class="telefono"></b>.</p>
+    </div>
+    <form class="nascosto" id="passo-dati" novalidate autocomplete="on">
+      <div class="riquadro">
+        <h2><span class="passo">3</span>I tuoi dati</h2>
+        <div class="scelta-fatta"><span id="scelta-riepilogo"></span><button type="button" class="btn-link" data-torna="ora">cambia</button></div>
+        <div class="tipi"><button type="button" class="tipo" data-tipo="nuovo">È la prima volta</button><button type="button" class="tipo" data-tipo="cliente">Sono già cliente del CAF</button></div>
+        <p class="nota" id="nota-tipo" style="margin:-6px 0 12px">Scegli una delle due.</p>
+      </div>
+
+      <div id="blocco-dati" class="nascosto">
+        <div class="riquadro">
+          <h2>Dati anagrafici</h2>
+          <div class="griglia">
+            <label class="campo"><span class="etichetta">Cognome <span class="obbl">*</span></span><input type="text" id="f-cognome" maxlength="80" autocomplete="family-name"></label>
+            <label class="campo"><span class="etichetta">Nome <span class="obbl">*</span></span><input type="text" id="f-nome" maxlength="80" autocomplete="given-name"></label>
+            <label class="campo solo-nuovo"><span class="etichetta">Sesso <span class="obbl">*</span></span>
+              <select id="f-sesso"><option value="">Scegli...</option><option value="M">Maschio</option><option value="F">Femmina</option></select></label>
+            <label class="campo solo-nuovo"><span class="etichetta">Data di nascita <span class="obbl">*</span></span><input type="date" id="f-data" min="1900-01-01" autocomplete="bday"></label>
+            <label class="campo intero solo-nuovo"><span class="etichetta">Comune di nascita o stato estero <span class="obbl">*</span></span>
+              <div class="comune"><input type="text" id="f-comune" maxlength="80" autocomplete="off" placeholder="Inizia a scrivere e scegli dall'elenco"><div class="suggerimenti"></div></div>
+              <span class="nota">Per chi è nato all'estero: scrivi lo Stato di nascita.</span></label>
+            <label class="campo intero"><span class="etichetta">Codice fiscale <span class="obbl">*</span></span>
+              <div class="riga-cf"><input type="text" id="f-cf" maxlength="16" autocomplete="off" spellcheck="false"><button type="button" class="btn solo-nuovo" id="calcola-cf">Calcola</button></div>
+              <span class="nota" id="nota-cf"></span></label>
+          </div>
+        </div>
+        <div class="riquadro">
+          <h2>Contatti</h2>
+          <div class="griglia">
+            <label class="campo"><span class="etichetta">Telefono <span class="obbl">*</span></span><input type="tel" id="f-telefono" maxlength="40" autocomplete="tel"></label>
+            <label class="campo"><span class="etichetta">Email <span class="obbl">*</span></span><input type="email" id="f-email" maxlength="120" autocomplete="email" placeholder="nome@esempio.it"><span class="nota">Qui arriva la conferma dell'appuntamento.</span></label>
+          </div>
+        </div>
+        <div class="riquadro solo-nuovo" id="riquadro-altri">
+          <h2>Altri dati</h2>
+          <div class="griglia" id="campi-altri"></div>
+        </div>
+        <div class="riquadro">
+          <h2>Note (facoltative)</h2>
+          <label class="campo"><textarea id="f-note" rows="3" maxlength="1000" placeholder="Per esempio: porto anche i documenti di mia madre"></textarea></label>
+        </div>
+        <div class="riquadro">
+          <h2>Informativa privacy</h2>
+          <div class="informativa" id="informativa"></div>
+          <label class="spunta"><input type="checkbox" id="f-consenso">
+            <span>Dichiaro di aver letto l'informativa sul trattamento dei dati personali e presto il mio consenso ai sensi del Regolamento europeo 679/2016. <span class="obbl">*</span></span></label>
+        </div>
+        <div class="hp" aria-hidden="true"><label>Sito web <input type="text" id="f-sito" tabindex="-1" autocomplete="off"></label></div>
+        <div id="esito"></div>
+        <button type="submit" class="btn btn-primario" id="invia">Invia la richiesta</button>
+        <p class="nota" style="text-align:center">La richiesta va confermata dal CAF Gianicolense: ti scriveremo per mail.</p>
+      </div>
+    </form>
+    <div id="successo" class="riquadro successo nascosto">
+      <div class="segno">&#10003;</div>
+      <h1>Richiesta ricevuta</h1>
+      <p id="successo-testo"></p>
+      <p>Ti confermeremo l'appuntamento per mail: controlla anche la posta indesiderata.<br>Per spostare l'appuntamento chiamaci allo <b class="telefono"></b>.</p>
+    </div>
+  </div>
+
+  <!-- gestione dal link della mail (?c=codice) -->
+  <div id="gestione" class="riquadro nascosto"></div>
+
+  <div class="piede">CAF Gianicolense · Designed by Gianluca Cioè</div>
+</div>
+
+<script src="comuni.js"></script>
+<script src="cf.js"></script>
+<script>
+'use strict';
+const FIREBASE_URL = 'https://caf-gianicolense-default-rtdb.europe-west1.firebasedatabase.app';
+const VERSIONE = '1';
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const GIORNI = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
+const MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+const giornoLungo = iso => { const [a, m, g] = iso.split('-').map(Number); return `${GIORNI[new Date(Date.UTC(a, m - 1, g)).getUTCDay()]} ${g} ${MESI[m - 1]}`; };
+const oraTesto = h => `${String(h).slice(0, 2)}:${String(h).slice(2)}`;
+const oggi = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const leggiFb = async p => { const r = await fetch(FIREBASE_URL + p + '.json', { cache: 'no-store' }); if (!r.ok) throw new Error('Errore ' + r.status); return r.json(); };
+const casuale = n => { const c = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'; const b = new Uint8Array(n); crypto.getRandomValues(b); return Array.from(b, x => c[x % c.length]).join(''); };
+let PUB = null, LIBERI = {}, PRESI = {}, MODULO = { campi: [], privacy: '' };
+const scelta = { servizio: null, data: null, ora: null, tipo: null };
+let giorniMostrati = 10;
+
+function errore(t) { const e = $('#esito'); e.innerHTML = ''; if (!t) return; const d = document.createElement('div'); d.className = 'messaggio errore'; d.textContent = t; e.appendChild(d); d.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+function mostraTelefono() { $$('.telefono').forEach(x => { x.textContent = (PUB && PUB.telefono) || '06 58204229'; }); }
+
+// ---------- prenotazione ----------
+async function caricaTutto() {
+  const [pub, lib, presi, mod] = await Promise.all([leggiFb('/prenota/pubblico'), leggiFb('/prenota/liberi'), leggiFb('/prenota/presi'), leggiFb('/modulo')]);
+  PUB = pub || { servizi: [] }; LIBERI = lib || {}; PRESI = presi || {};
+  MODULO = mod || {}; MODULO.campi = (Array.isArray(MODULO.campi) ? MODULO.campi : Object.values(MODULO.campi || {})).filter(c => c && c.nome);
+}
+async function aggiornaOrari() { try { const [lib, presi] = await Promise.all([leggiFb('/prenota/liberi'), leggiFb('/prenota/presi')]); LIBERI = lib || {}; PRESI = presi || {}; } catch (e) { /* si resta con quelli di prima */ } }
+function disegnaServizi() {
+  const servizi = (Array.isArray(PUB.servizi) ? PUB.servizi : Object.values(PUB.servizi || {})).filter(s => s && s.tipo);
+  const box = $('#servizi'); box.innerHTML = '';
+  if (!servizi.length) { box.innerHTML = '<p class="nota">La prenotazione online in questo momento non è disponibile. Chiamaci allo <b class="telefono"></b>.</p>'; mostraTelefono(); return; }
+  for (const s of servizi) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'servizio';
+    const t = document.createElement('b'); t.textContent = s.nome; b.appendChild(t);
+    if (s.descrizione) { const d = document.createElement('small'); d.textContent = s.descrizione; b.appendChild(d); }
+    b.onclick = () => { scelta.servizio = s; scelta.data = scelta.ora = null; giorniMostrati = 10; vai('ora'); };
+    box.appendChild(b);
+  }
+}
+function orariLiberi(persona) {
+  const out = [];
+  const presi = PRESI[persona] || {};
+  for (const [g, testo] of Object.entries(LIBERI[persona] || {}).sort()) {
+    if (g <= oggi()) continue;
+    const ore = String(testo || '').split(/\s+/).filter(h => /^\d{4}$/.test(h) && !(presi[g] && presi[g][h]));
+    if (ore.length) out.push({ data: g, ore });
+  }
+  return out;
+}
+function disegnaOrari() {
+  $('#scelto-servizio').textContent = scelta.servizio.nome;
+  const tutti = orariLiberi(scelta.servizio.persona);
+  const box = $('#giorni'); box.innerHTML = '';
+  if (!tutti.length) { box.innerHTML = '<p class="messaggio attesa">Al momento non ci sono orari liberi per questo servizio.</p>'; }
+  for (const g of tutti.slice(0, giorniMostrati)) {
+    const d = document.createElement('div'); d.className = 'giorno';
+    const t = document.createElement('div'); t.className = 'giorno-titolo'; t.textContent = giornoLungo(g.data); d.appendChild(t);
+    const ore = document.createElement('div'); ore.className = 'ore';
+    for (const h of g.ore) {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'ora'; b.textContent = oraTesto(h);
+      b.onclick = () => { scelta.data = g.data; scelta.ora = h; vai('dati'); };
+      ore.appendChild(b);
+    }
+    d.appendChild(ore); box.appendChild(d);
+  }
+  $('#altri-giorni').classList.toggle('nascosto', tutti.length <= giorniMostrati);
+}
+$('#altri-giorni').onclick = () => { giorniMostrati += 10; disegnaOrari(); };
+function vai(passo) {
+  $('#passo-servizio').classList.toggle('nascosto', passo !== 'servizio');
+  $('#passo-ora').classList.toggle('nascosto', passo !== 'ora');
+  $('#passo-dati').classList.toggle('nascosto', passo !== 'dati');
+  if (passo === 'ora') { aggiornaOrari().then(disegnaOrari); disegnaOrari(); }
+  if (passo === 'dati') $('#scelta-riepilogo').textContent = `${scelta.servizio.nome}: ${giornoLungo(scelta.data)} alle ${oraTesto(scelta.ora)}`;
+  errore('');
+  window.scrollTo(0, 0);
+}
+$$('[data-torna]').forEach(b => { b.onclick = () => vai(b.dataset.torna); });
+$$('[data-tipo]').forEach(b => {
+  b.onclick = () => {
+    scelta.tipo = b.dataset.tipo;
+    $$('[data-tipo]').forEach(x => x.classList.toggle('attivo', x === b));
+    const nuovo = scelta.tipo === 'nuovo';
+    $$('.solo-nuovo').forEach(x => x.classList.toggle('nascosto', !nuovo));
+    if (nuovo) $('#riquadro-altri').classList.toggle('nascosto', !campiAltri().length);
+    $('#nota-tipo').textContent = nuovo ? 'Compila i dati per l\'iscrizione al CAF: al tuo arrivo sarai già in archivio.' : 'Bastano pochi dati: ti riconosciamo dal codice fiscale.';
+    $('#blocco-dati').classList.remove('nascosto');
+    aggiornaCf();
+  };
+});
+
+// campi del modulo d'iscrizione (quelli di contatto e le note li chiede la pagina)
+const chiave = c => ((c.nome || '') + ' ' + (c.etichetta || '')).toLowerCase();
+const campoContatto = c => /mail|telefono|cellulare|note|osservazion|oggetto/.test(chiave(c));
+const campiAltri = () => MODULO.campi.filter(c => !campoContatto(c));
+function disegnaCampi() {
+  const box = $('#campi-altri'); box.innerHTML = '';
+  for (const c of campiAltri()) {
+    const id = 'c-' + c.nome, k = chiave(c);
+    const intero = c.tipo === 'textarea' || /indirizzo/.test(k);
+    if (c.tipo === 'checkbox') {
+      const l = document.createElement('label'); l.className = 'spunta intero';
+      const i = document.createElement('input'); i.type = 'checkbox'; i.id = id;
+      const s = document.createElement('span'); s.textContent = c.etichetta;
+      l.append(i, s); box.appendChild(l); continue;
+    }
+    const l = document.createElement('label'); l.className = 'campo' + (intero ? ' intero' : '');
+    const e = document.createElement('span'); e.className = 'etichetta'; e.textContent = c.etichetta + ' ';
+    if (c.obbligatorio) { const o = document.createElement('span'); o.className = 'obbl'; o.textContent = '*'; e.appendChild(o); }
+    l.appendChild(e);
+    let inp;
+    if (c.tipo === 'select') { inp = document.createElement('select'); inp.appendChild(new Option('Scegli...', '')); String(c.opzioni || '').split(',').map(x => x.trim()).filter(Boolean).forEach(o => inp.appendChild(new Option(o, o))); }
+    else if (c.tipo === 'textarea') { inp = document.createElement('textarea'); inp.rows = 3; inp.maxLength = 1000; }
+    else { inp = document.createElement('input'); inp.type = c.tipo === 'data' ? 'date' : c.tipo === 'numero' ? 'number' : 'text'; inp.maxLength = 1000; if (/^cap\b|\bcap$/.test(k.trim()) || c.nome === 'cap') { inp.inputMode = 'numeric'; inp.maxLength = 5; } }
+    inp.id = id;
+    if (/(comune|luogo) di residenza/.test(k)) {
+      const w = document.createElement('div'); w.className = 'comune';
+      const s = document.createElement('div'); s.className = 'suggerimenti';
+      inp.autocomplete = 'off'; inp.placeholder = "Inizia a scrivere e scegli dall'elenco";
+      w.append(inp, s); l.appendChild(w); collegaComuni(inp, s);
+    } else l.appendChild(inp);
+    if (/provincia di residenza/.test(k)) { inp.readOnly = true; inp.tabIndex = -1; inp.placeholder = 'Si compila da sola'; }
+    box.appendChild(l);
+  }
+  const comuneRes = campiAltri().find(c => /(comune|luogo) di residenza/.test(chiave(c)));
+  const provRes = campiAltri().find(c => /provincia di residenza/.test(chiave(c)));
+  if (comuneRes && provRes) {
+    const a = document.getElementById('c-' + comuneRes.nome), b = document.getElementById('c-' + provRes.nome);
+    const agg = () => { const m = /\(([A-Za-z]{2})\)\s*$/.exec(a.value || ''); b.value = m ? m[1].toUpperCase() : ''; };
+    a.addEventListener('input', agg); a.addEventListener('change', agg);
+  }
+  const inf = $('#informativa'); inf.innerHTML = '';
+  String(MODULO.privacy || '').split(/\n\s*\n/).map(p => p.trim()).filter(Boolean).forEach(t => { const p = document.createElement('p'); p.textContent = t; inf.appendChild(p); });
+  if (!inf.children.length) inf.textContent = 'Informativa disponibile presso lo sportello.';
+}
+function collegaComuni(input, box) {
+  let attivo = -1;
+  const tutti = typeof COMUNI_CATASTALI !== 'undefined' ? Object.keys(COMUNI_CATASTALI) : [];
+  const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  function elenca() {
+    box.innerHTML = ''; attivo = -1;
+    const t = norm(input.value.trim());
+    if (t.length < 2) { box.classList.remove('visibile'); return; }
+    const trovati = tutti.filter(n => norm(n).includes(t)).sort((a, b) => norm(a).indexOf(t) - norm(b).indexOf(t) || a.length - b.length).slice(0, 8);
+    for (const n of trovati) {
+      const d = document.createElement('div'); d.textContent = n;
+      d.addEventListener('mousedown', e => { e.preventDefault(); input.value = n; box.classList.remove('visibile'); input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true })); });
+      box.appendChild(d);
+    }
+    box.classList.toggle('visibile', trovati.length > 0);
+  }
+  input.addEventListener('input', e => { if (e.isTrusted) elenca(); });
+  input.addEventListener('blur', () => box.classList.remove('visibile'));
+  input.addEventListener('keydown', e => {
+    const voci = box.querySelectorAll('div');
+    if (!voci.length || !box.classList.contains('visibile')) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); attivo = Math.min(attivo + 1, voci.length - 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); attivo = Math.max(attivo - 1, 0); }
+    else if (e.key === 'Enter' && attivo >= 0) { e.preventDefault(); voci[attivo].dispatchEvent(new Event('mousedown')); return; }
+    else return;
+    voci.forEach((v, i) => v.classList.toggle('attivo', i === attivo));
+  });
+}
+// codice fiscale: per chi è nuovo si compila da solo; per chi è già cliente si controlla solo la forma
+let cfAMano = false;
+const fissi = () => ({ cognome: $('#f-cognome').value.trim(), nome: $('#f-nome').value.trim(), sesso: $('#f-sesso').value, dataNascita: $('#f-data').value, comuneNascita: $('#f-comune').value.trim() });
+function aggiornaCf() {
+  const nuovo = scelta.tipo === 'nuovo';
+  const calcolato = nuovo ? CodiceFiscale.calcola(fissi()) : '';
+  const campo = $('#f-cf'), nota = $('#nota-cf');
+  if (nuovo && !cfAMano && calcolato) campo.value = calcolato;
+  const v = CodiceFiscale.pulisci(campo.value);
+  nota.className = 'nota';
+  if (!v) nota.textContent = nuovo ? 'Si compila da solo con i dati qui sopra. Si può correggere a mano.' : 'Quello della tessera sanitaria.';
+  else if (!CodiceFiscale.valido(v)) { nota.textContent = 'Il codice fiscale non sembra giusto: controlla le 16 lettere e cifre.'; nota.className = 'nota errore'; }
+  else if (calcolato && !CodiceFiscale.corrisponde(v, fissi())) { nota.textContent = 'Dai dati inseriti risulterebbe ' + calcolato + '. Se il tuo codice è diverso va bene lo stesso.'; nota.className = 'nota avviso'; }
+  else nota.textContent = 'Codice valido.';
+}
+collegaComuni($('#f-comune'), document.querySelector('#f-comune + .suggerimenti'));
+['#f-cognome', '#f-nome', '#f-data', '#f-comune'].forEach(s => $(s).addEventListener('input', aggiornaCf));
+['#f-sesso', '#f-data', '#f-comune'].forEach(s => $(s).addEventListener('change', aggiornaCf));
+$('#f-cf').addEventListener('input', () => { cfAMano = true; $('#f-cf').value = $('#f-cf').value.toUpperCase(); aggiornaCf(); });
+$('#calcola-cf').onclick = () => { const c = CodiceFiscale.calcola(fissi()); if (!c) { const n = $('#nota-cf'); n.textContent = 'Compila cognome, nome, sesso, data e comune di nascita, scegliendo il comune dall\'elenco, poi premi di nuovo Calcola.'; n.className = 'nota errore'; return; } cfAMano = false; $('#f-cf').value = c; aggiornaCf(); };
+
+function raccogli() {
+  if (!scelta.tipo) throw new Error('Scegli "È la prima volta" oppure "Sono già cliente del CAF".');
+  const nuovo = scelta.tipo === 'nuovo';
+  const f = fissi();
+  const d = { cognome: f.cognome, nome: f.nome, codiceFiscale: CodiceFiscale.pulisci($('#f-cf').value), telefono: $('#f-telefono').value.trim(), email: $('#f-email').value.trim().toLowerCase() };
+  const mancanti = [];
+  if (!d.cognome) mancanti.push('Cognome'); if (!d.nome) mancanti.push('Nome');
+  if (nuovo) {
+    Object.assign(d, { sesso: f.sesso, dataNascita: f.dataNascita, comuneNascita: f.comuneNascita });
+    if (!d.sesso) mancanti.push('Sesso'); if (!d.dataNascita) mancanti.push('Data di nascita'); if (!d.comuneNascita) mancanti.push('Comune di nascita o stato estero');
+  }
+  if (!d.codiceFiscale) mancanti.push('Codice fiscale'); if (!d.telefono) mancanti.push('Telefono'); if (!d.email) mancanti.push('Email');
+  if (nuovo) for (const c of campiAltri()) {
+    const el = document.getElementById('c-' + c.nome); if (!el) continue;
+    const v = c.tipo === 'checkbox' ? el.checked : el.value.trim();
+    if (c.obbligatorio && c.tipo !== 'checkbox' && !v) mancanti.push(c.etichetta);
+    if (c.tipo === 'checkbox' || (v !== '' && v !== false)) d[c.nome] = v;
+  }
+  if (mancanti.length) throw new Error('Mancano: ' + mancanti.join(', ') + '.');
+  if (nuovo && (!/^\d{4}-\d{2}-\d{2}$/.test(d.dataNascita) || d.dataNascita < '1900-01-01' || d.dataNascita > oggi())) throw new Error('La data di nascita non è valida: sceglila dal calendario.');
+  if (!CodiceFiscale.valido(d.codiceFiscale)) throw new Error('Il codice fiscale non sembra giusto: controlla le 16 lettere e cifre.');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(d.email)) throw new Error('L\'indirizzo email non sembra giusto, es. nome@esempio.it');
+  if (d.telefono.replace(/\D/g, '').length < 6) throw new Error('Il numero di telefono non sembra giusto.');
+  // email e telefono anche nei campi del modulo d'iscrizione, così arrivano in anagrafica
+  for (const c of MODULO.campi) { const k = chiave(c); if (/mail/.test(k)) d[c.nome] = d.email; else if (/telefono|cellulare/.test(k)) d[c.nome] = d.telefono; }
+  const note = $('#f-note').value.trim();
+  if (note) d.note = note;
+  if (!$('#f-consenso').checked) throw new Error('Per inviare serve il consenso al trattamento dei dati.');
+  d.consensoPrivacy = true;
+  return d;
+}
+let idRichiesta = casuale(24), codice = casuale(28);
+function fatto() {
+  $('#passo-dati').classList.add('nascosto');
+  $('#successo').classList.remove('nascosto');
+  $('#successo-testo').textContent = `${scelta.servizio.nome}: ${giornoLungo(scelta.data)} alle ${oraTesto(scelta.ora)}.`;
+  mostraTelefono(); window.scrollTo(0, 0);
+}
+$('#passo-dati').addEventListener('submit', async e => {
+  e.preventDefault(); errore('');
+  let dati;
+  try { dati = raccogli(); } catch (x) { errore(x.message); return; }
+  if ($('#f-sito').value) { fatto(); return; } // compilato da un programma automatico: non si manda niente
+  const b = $('#invia'); b.disabled = true; b.textContent = 'Invio in corso...';
+  const p = scelta.servizio.persona;
+  const corpo = {};
+  corpo[`presi/${p}/${scelta.data}/${scelta.ora}`] = true;
+  corpo[`richieste/${idRichiesta}`] = { ricevuto: { '.sv': 'timestamp' }, persona: p, data: scelta.data, ora: scelta.ora, servizio: scelta.servizio.tipo, tipo: scelta.tipo, codice, versione: VERSIONE, dati };
+  const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 30000);
+  try {
+    const r = await fetch(`${FIREBASE_URL}/prenota.json`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, signal: ctrl.signal, body: JSON.stringify(corpo) });
+    if (r.ok) { fatto(); return; }
+    // l'orario è stato preso un attimo prima da un altro (oppure era già arrivata questa stessa richiesta)
+    await aggiornaOrari();
+    const ancoraLibero = orariLiberi(p).some(g => g.data === scelta.data && g.ore.includes(scelta.ora));
+    if (!ancoraLibero) { idRichiesta = casuale(24); errore('Questo orario è stato appena preso da un\'altra persona: scegline un altro.'); setTimeout(() => vai('ora'), 1800); return; }
+    errore('L\'invio non è riuscito (errore ' + r.status + '). Controlla i dati e riprova; se non funziona, chiamaci.');
+  } catch (x) { errore('Connessione assente o troppo lenta. Controlla la rete e premi di nuovo Invia.'); }
+  finally { clearTimeout(t); b.disabled = false; b.textContent = 'Invia la richiesta'; }
+});
+
+// ---------- gestione dal link della mail ----------
+async function gestione(c) {
+  $('#titolo').textContent = 'Il tuo appuntamento';
+  const box = $('#gestione');
+  let info = null;
+  try { info = await leggiFb(`/prenota/info/${encodeURIComponent(c)}`); } catch (e) { info = null; }
+  $('#caricamento').classList.add('nascosto');
+  box.classList.remove('nascosto');
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[x]));
+  if (info) { info.servizio = esc(info.servizio); info.telefono = esc(info.telefono); info.ora = esc(info.ora); }
+  const tel = (info && info.telefono) || '06 58204229';
+  const testo = (html) => { box.innerHTML = html; };
+  const quando = info && info.data ? `${giornoLungo(info.data)} alle ${info.ora}` : '';
+  const azione = async (tipo, extra) => {
+    const r = await fetch(`${FIREBASE_URL}/prenota/azioni/${encodeURIComponent(c)}.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ tipo, ts: { '.sv': 'timestamp' } }, extra || {})) });
+    if (!r.ok && r.status !== 401 && r.status !== 403) throw new Error('Errore ' + r.status);
+  };
+  const conferma = (testoBottone, classe, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn ' + classe; b.textContent = testoBottone; b.onclick = async () => { b.disabled = true; try { await fn(); } catch (e) { b.disabled = false; alert('Non è riuscito: controlla la connessione e riprova.'); } }; return b; };
+  if (!info) { testo(`<h2>Link non valido</h2><p>Questo link non è valido o non è più attivo. Per informazioni chiamaci allo <b>${tel}</b>.</p>`); return; }
+  const esci = (titolo, msg, cls = 'ok') => testo(`<div class="messaggio ${cls}"><b>${titolo}</b></div><p>${msg}</p>`);
+  if (info.stato === 'attesa') {
+    testo(`<h2>Richiesta in attesa di conferma</h2><p><b>${info.servizio}</b><br>${quando}</p><p class="nota">Ti scriveremo appena il CAF Gianicolense la conferma.</p>`);
+    box.appendChild(conferma('Ritira la richiesta', 'btn-pericolo', async () => { if (!confirm('Ritiri la richiesta di appuntamento?')) throw new Error('annullato'); await azione('ritira'); esci('Richiesta ritirata', `Per un nuovo appuntamento <a href="?">prenota di nuovo</a> o chiamaci allo <b>${tel}</b>.`); }));
+  } else if (info.stato === 'proposta') {
+    const scaduta = info.scade && Date.parse(info.scade) < Date.now();
+    if (scaduta) { testo(`<h2>Proposta scaduta</h2><p>Gli orari proposti non sono più disponibili. Per un appuntamento <a href="?">prenota di nuovo</a> o chiamaci allo <b>${tel}</b>.</p>`); return; }
+    const proposte = Array.isArray(info.proposte) ? info.proposte : Object.values(info.proposte || {});
+    const entro = info.scade ? new Date(info.scade).toLocaleString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '';
+    testo(`<h2>Scegli un orario</h2><p>Per <b>${info.servizio}</b> ti proponiamo questi orari${entro ? `, da scegliere entro ${entro}` : ''}:</p><div class="proposte">${proposte.map((p, i) => `<label><input type="radio" name="pr" value="${i}"> ${giornoLungo(p.data)} alle ${p.ora}</label>`).join('')}</div>`);
+    box.appendChild(conferma('Conferma questo orario', 'btn-primario', async () => {
+      const s = document.querySelector('input[name=pr]:checked');
+      if (!s) { alert('Scegli uno degli orari.'); throw new Error('nessuna scelta'); }
+      await azione('scegli', { scelta: +s.value });
+      esci('Orario scelto', `Ti arriverà la mail di conferma con i documenti da portare. Per spostare l'appuntamento chiamaci allo <b>${tel}</b>.`);
+    }));
+    const no = document.createElement('p'); no.style.textAlign = 'center';
+    no.appendChild(conferma('Nessuno di questi mi va bene', 'btn-link', async () => { await azione('nessuna'); esci('Va bene', `Chiamaci allo <b>${tel}</b> e troviamo insieme un altro orario.`, 'attesa'); }));
+    box.appendChild(no);
+  } else if (info.stato === 'confermato') {
+    testo(`<h2>Appuntamento confermato</h2><p><b>${info.servizio}</b><br>${quando}</p>`);
+    if (info.puoDisdire) box.appendChild(conferma('Disdici l\'appuntamento', 'btn-pericolo', async () => { if (!confirm('Disdici l\'appuntamento?')) throw new Error('annullato'); await azione('disdici'); esci('Appuntamento disdetto', `Grazie per averci avvisato. Per un nuovo appuntamento <a href="?">prenota di nuovo</a> o chiamaci allo <b>${tel}</b>.`); }));
+    else box.insertAdjacentHTML('beforeend', `<p class="nota">Il giorno stesso non si può disdire online: chiamaci allo <b>${tel}</b>.</p>`);
+  } else if (info.stato === 'annullato') {
+    testo(`<h2>Appuntamento annullato</h2><p>L'appuntamento di ${quando} è annullato. Per un nuovo appuntamento <a href="?">prenota di nuovo</a> o chiamaci allo <b>${tel}</b>.</p>`);
+  } else {
+    testo(`<h2>Richiesta non più attiva</h2><p>Per un nuovo appuntamento <a href="?">prenota di nuovo</a> o chiamaci allo <b>${tel}</b>.</p>`);
+  }
+}
+
+async function avvia() {
+  const c = new URLSearchParams(location.search).get('c');
+  if (c && /^[A-Za-z0-9]{24,40}$/.test(c)) return gestione(c);
+  try {
+    await caricaTutto();
+    disegnaServizi(); disegnaCampi(); mostraTelefono();
+    $('#caricamento').classList.add('nascosto');
+    $('#prenota').classList.remove('nascosto');
+  } catch (e) {
+    $('#caricamento').className = 'messaggio errore';
+    $('#caricamento').innerHTML = 'La pagina non si è caricata. Controlla la connessione. <button type="button" class="btn" id="riprova" style="margin-left:8px">Riprova</button>';
+    $('#riprova').onclick = () => location.reload();
+  }
+}
+avvia();
+</script>
+</body>
+</html>
