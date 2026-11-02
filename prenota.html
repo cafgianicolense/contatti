@@ -94,6 +94,10 @@
   .piede { text-align: center; font-size: 12px; color: var(--testo-tenue); margin-top: 18px; }
   .proposte label { display: flex; gap: 10px; align-items: center; border: 1px solid var(--bordo); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; cursor: pointer; font-weight: 600; color: var(--blu); }
   .proposte input { width: 20px; height: 20px; accent-color: var(--blu); }
+  .doc-titolo { font-size: 16px; color: var(--blu); margin: 16px 0 6px; }
+  .doc-elenco { margin: 0 0 16px; padding-left: 22px; }
+  .doc-elenco li { margin-bottom: 6px; }
+  @media print { .no-stampa, .btn, .piede { display: none !important; } body { background: #fff !important; } }
 </style>
 </head>
 <body>
@@ -470,7 +474,11 @@ async function gestione(c) {
     no.appendChild(conferma('Nessuno di questi mi va bene', 'btn-link', async () => { await azione('nessuna'); esci('Va bene', `Chiamaci allo <b>${tel}</b> e troviamo insieme un altro orario.`, 'attesa'); }));
     box.appendChild(no);
   } else if (info.stato === 'confermato') {
-    testo(`<h2>Appuntamento confermato</h2><p><b>${info.servizio}</b><br>${quando}</p>`);
+    // documenti da portare e indirizzo (4.10.0), con la stampa: si salva anche in PDF dal telefono
+    const docs = Array.isArray(info.documenti) ? info.documenti : Object.values(info.documenti || {});
+    testo(`<h2>Appuntamento confermato</h2><p><b>${info.servizio}</b><br>${quando}${info.indirizzo ? `<br>${esc(info.indirizzo)}` : ''}</p>
+      ${docs.length ? `<h3 class="doc-titolo">Documenti da portare</h3><ul class="doc-elenco">${docs.map(d => `<li>${esc(d)}</li>`).join('')}</ul>` : ''}`);
+    if (docs.length) { const pp = document.createElement('p'); pp.className = 'no-stampa'; pp.style.textAlign = 'center'; const bp = document.createElement('button'); bp.type = 'button'; bp.className = 'btn btn-secondario'; bp.textContent = 'Stampa o salva in PDF'; bp.onclick = () => window.print(); pp.appendChild(bp); box.appendChild(pp); }
     if (info.puoDisdire) box.appendChild(conferma('Disdici l\'appuntamento', 'btn-pericolo', async () => { if (!confirm('Disdici l\'appuntamento?')) throw new Error('annullato'); await azione('disdici'); esci('Appuntamento disdetto', `Grazie per averci avvisato. Per un nuovo appuntamento <a href="?">prenota di nuovo</a> o chiamaci allo <b>${tel}</b>.`); }));
     else box.insertAdjacentHTML('beforeend', `<p class="nota">Il giorno stesso non si può disdire online: chiamaci allo <b>${tel}</b>.</p>`);
   } else if (info.stato === 'annullato') {
