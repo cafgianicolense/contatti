@@ -180,7 +180,7 @@
       <div class="segno">&#10003;</div>
       <h1>Richiesta ricevuta</h1>
       <p id="successo-testo"></p>
-      <p>Ti confermeremo l'appuntamento per mail: controlla anche la posta indesiderata.<br>Per spostare l'appuntamento chiamaci allo <b class="telefono"></b>.</p>
+      <p>Ti confermeremo l'appuntamento per mail: controlla anche la posta indesiderata.<br>Dalla mail di conferma potrai anche spostarlo o disdirlo. Per altro chiamaci allo <b class="telefono"></b>.</p>
     </div>
   </div>
 
@@ -462,13 +462,19 @@ async function gestione(c) {
   const oraBella = h => { const s = String(h == null ? '' : h); return /^\d{4}$/.test(s) ? s.slice(0, 2) + ':' + s.slice(2) : s; };
   const slotDi = i => { const r = (i && i.ritiro) || {}; return (Array.isArray(r.slot) ? r.slot : Object.values(r.slot || {})).filter(s => s && /^\d{4}-\d{2}-\d{2}$/.test(String(s.data)) && /^\d{4}$/.test(String(s.ora))); };
   const attendi = ms => new Promise(ok => setTimeout(ok, ms));
+  // 5.2.0: nessun orario libero per spostare: lo staff lo trova tra le novità (una volta per visita), il cliente riprova più tardi
+  const segnalaNessunSlot = () => { try { if (sessionStorage.getItem('nes_' + c)) return; sessionStorage.setItem('nes_' + c, '1'); } catch (e) { /* senza memoria si riprova: il portale non duplica */ } azione('nessuna').catch(() => {}); };
+  const messaggioNessunSlot = () => `Al momento non ci sono altri orari liberi online: riprova più tardi con questo stesso link. Se hai urgenza chiamaci allo <b>${tel}</b>.`;
   function ritiroGestione(i, avviso) {
     const ri = i.ritiro || {};
     const slot = slotDi(i);
     const dove = i.indirizzo ? `<br>${esc(i.indirizzo)}` : '';
     const intro = `<h2>Ritiro dei documenti</h2><p>${i.servizio ? `<b>${i.servizio}</b><br>` : ''}${giornoLungo(i.data)} alle ${oraBella(i.ora)}${dove}</p>`;
     if (!ri.puoSpostare || !slot.length) {
-      testo(`${avviso ? `<div class="messaggio errore">${avviso}</div>` : ''}${intro}<p class="nota">${ri.puoSpostare ? 'Al momento non ci sono altri orari liberi online. ' : ''}Per cambiare giorno chiamaci allo <b>${tel}</b>.</p>`);
+      let msg = `Per cambiare giorno chiamaci allo <b>${tel}</b>.`;
+      if (ri.puoSpostare) { segnalaNessunSlot(); msg = messaggioNessunSlot(); }
+      else if (ri.tardi) msg = `Mancano meno di ${esc(ri.ore || 48)} ore al ritiro: per cambiare giorno chiamaci allo <b>${tel}</b>.`;
+      testo(`${avviso ? `<div class="messaggio errore">${avviso}</div>` : ''}${intro}<p class="nota">${msg}</p>`);
       return;
     }
     const giorni = [];
@@ -496,6 +502,36 @@ async function gestione(c) {
       esci('Abbiamo ricevuto la richiesta', `Controlla tra qualche minuto con lo stesso link. Se hai dubbi chiamaci allo <b>${tel}</b>.`, 'attesa');
     }));
   }
+  // ---- appuntamento: spostamento dal link (5.2.0), da domani in poi e solo se mancano abbastanza ore ----
+  function mostraSposta(i, avviso) {
+    const sp = i.sposta || {};
+    const slot = slotDi({ ritiro: sp });
+    if (!sp.puoSpostare || !slot.length) { testo(`<h2>Sposta l'appuntamento</h2><p class="nota">${sp.puoSpostare ? messaggioNessunSlot() : `Per spostarlo chiamaci allo <b>${tel}</b>.`}</p>`); if (sp.puoSpostare) segnalaNessunSlot(); return; }
+    const giorni = [];
+    for (const s of slot) { let g = giorni.find(x => x.data === s.data); if (!g) { g = { data: s.data, ore: [] }; giorni.push(g); } g.ore.push(String(s.ora)); }
+    testo(`${avviso ? `<div class="messaggio errore">${avviso}</div>` : ''}<h2>Sposta l'appuntamento</h2><p>${i.servizio ? `<b>${i.servizio}</b><br>` : ''}Ora è fissato ${giornoLungo(i.data)} alle ${oraBella(i.ora)}. Scegli un altro orario libero:</p>
+      ${giorni.map(g => `<div class="giorno"><div class="giorno-titolo">${giornoLungo(g.data)}</div><div class="ore">${g.ore.map(o => `<label class="ora-s"><input type="radio" name="sl" value="${g.data}|${o}"> ${oraBella(o)}</label>`).join('')}</div></div>`).join('')}`);
+    box.appendChild(conferma('Sposta l\'appuntamento', 'btn-primario', async () => {
+      const s = document.querySelector('input[name=sl]:checked');
+      if (!s) { alert('Scegli uno degli orari.'); throw new Error('nessuna scelta'); }
+      const [data, ora] = s.value.split('|');
+      await azione('sposta', { data, ora });
+      testo('<div class="messaggio attesa"><b>Un momento...</b></div><p>Stiamo spostando l\'appuntamento.</p>');
+      let nuovo = null;
+      const fine = Date.now() + 60000;
+      while (Date.now() < fine) {
+        await attendi(3000);
+        try { nuovo = pulisci(await leggiFb(`/prenota/info/${encodeURIComponent(c)}`)); } catch (e) { nuovo = null; }
+        if (nuovo && nuovo.data === data && String(nuovo.ora).replace(':', '') === ora) {
+          esci('Appuntamento spostato', `Ti aspettiamo ${giornoLungo(data)} alle ${oraBella(ora)}${nuovo.indirizzo ? `, ${esc(nuovo.indirizzo)}` : ''}. Ti arriverà una mail con il nuovo orario. Per qualsiasi informazione chiamaci allo <b>${tel}</b>.`);
+          return;
+        }
+      }
+      // nessuna conferma: se l'orario non è più tra quelli liberi lo ha preso un altro, altrimenti la richiesta è ancora in coda
+      if (nuovo && nuovo.sposta && !slotDi({ ritiro: nuovo.sposta }).some(x => x.data === data && String(x.ora) === ora)) { mostraSposta(nuovo, 'Questo orario non è più disponibile, scegline un altro.'); return; }
+      esci('Abbiamo ricevuto la richiesta', `Controlla tra qualche minuto con lo stesso link. Se hai dubbi chiamaci allo <b>${tel}</b>.`, 'attesa');
+    }));
+  }
   if (info.stato === 'attesa') {
     testo(`<h2>Richiesta in attesa di conferma</h2><p><b>${info.servizio}</b><br>${quando}</p><p class="nota">Ti scriveremo appena il CAF Gianicolense la conferma.</p>`);
     box.appendChild(conferma('Ritira la richiesta', 'btn-pericolo', async () => { if (!confirm('Ritiri la richiesta di appuntamento?')) throw new Error('annullato'); await azione('ritira'); esci('Richiesta ritirata', `Per un nuovo appuntamento <a href="?">prenota di nuovo</a> o chiamaci allo <b>${tel}</b>.`); }));
@@ -509,7 +545,7 @@ async function gestione(c) {
       const s = document.querySelector('input[name=pr]:checked');
       if (!s) { alert('Scegli uno degli orari.'); throw new Error('nessuna scelta'); }
       await azione('scegli', { scelta: +s.value });
-      esci('Orario scelto', `Ti arriverà la mail di conferma con i documenti da portare. Per spostare l'appuntamento chiamaci allo <b>${tel}</b>.`);
+      esci('Orario scelto', `Ti arriverà la mail di conferma con i documenti da portare. Dalla mail di conferma potrai anche spostarlo o disdirlo. Per altro chiamaci allo <b>${tel}</b>.`);
     }));
     const no = document.createElement('p'); no.style.textAlign = 'center';
     no.appendChild(conferma('Nessuno di questi mi va bene', 'btn-link', async () => { await azione('nessuna'); esci('Va bene', `Chiamaci allo <b>${tel}</b> e troviamo insieme un altro orario.`, 'attesa'); }));
@@ -524,8 +560,15 @@ async function gestione(c) {
     testo(`<h2>Appuntamento confermato</h2><p><b>${info.servizio}</b><br>${quando}${info.indirizzo ? `<br>${esc(info.indirizzo)}` : ''}</p>
       ${docs.length ? `<h3 class="doc-titolo">Documenti da portare</h3><ul class="doc-elenco">${docs.map(d => `<li>${esc(d)}</li>`).join('')}</ul>` : ''}`);
     if (docs.length) { const pp = document.createElement('p'); pp.className = 'no-stampa'; pp.style.textAlign = 'center'; const bp = document.createElement('button'); bp.type = 'button'; bp.className = 'btn btn-secondario'; bp.textContent = 'Stampa o salva in PDF'; bp.onclick = () => window.print(); pp.appendChild(bp); box.appendChild(pp); }
+    const sp = info.sposta || {};
+    if (sp.puoSpostare && slotDi({ ritiro: sp }).length) {
+      const ps = document.createElement('p'); ps.className = 'no-stampa'; ps.style.textAlign = 'center';
+      ps.appendChild(conferma('Sposta l\'appuntamento', 'btn-primario', async () => { mostraSposta(info); }));
+      box.appendChild(ps);
+    } else if (sp.puoSpostare) { segnalaNessunSlot(); box.insertAdjacentHTML('beforeend', `<p class="nota">${messaggioNessunSlot()}</p>`); }
+    else if (sp.tardi) box.insertAdjacentHTML('beforeend', `<p class="nota">Mancano meno di ${esc(sp.ore || 48)} ore all'appuntamento: per spostarlo chiamaci allo <b>${tel}</b>.</p>`);
     if (info.puoDisdire) box.appendChild(conferma('Disdici l\'appuntamento', 'btn-pericolo', async () => { if (!confirm('Disdici l\'appuntamento?')) throw new Error('annullato'); await azione('disdici'); esci('Appuntamento disdetto', `Grazie per averci avvisato. Per un nuovo appuntamento <a href="?">prenota di nuovo</a> o chiamaci allo <b>${tel}</b>.`); }));
-    else box.insertAdjacentHTML('beforeend', `<p class="nota">Il giorno stesso non si può disdire online: chiamaci allo <b>${tel}</b>.</p>`);
+    else box.insertAdjacentHTML('beforeend', `<p class="nota">L'appuntamento è già cominciato: per informazioni chiamaci allo <b>${tel}</b>.</p>`);
   } else if (info.stato === 'annullato') {
     testo(`<h2>Appuntamento annullato</h2><p>L'appuntamento di ${quando} è annullato. Per un nuovo appuntamento <a href="?">prenota di nuovo</a> o chiamaci allo <b>${tel}</b>.</p>`);
   } else {
