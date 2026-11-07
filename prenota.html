@@ -569,6 +569,12 @@ async function gestione(c) {
     else if (sp.tardi) box.insertAdjacentHTML('beforeend', `<p class="nota">Mancano meno di ${esc(sp.ore || 48)} ore all'appuntamento: per spostarlo chiamaci allo <b>${tel}</b>.</p>`);
     if (info.puoDisdire) box.appendChild(conferma('Disdici l\'appuntamento', 'btn-pericolo', async () => { if (!confirm('Disdici l\'appuntamento?')) throw new Error('annullato'); await azione('disdici'); esci('Appuntamento disdetto', `Grazie per averci avvisato. Per un nuovo appuntamento <a href="?">prenota di nuovo</a> o chiamaci allo <b>${tel}</b>.`); }));
     else box.insertAdjacentHTML('beforeend', `<p class="nota">L'appuntamento è già cominciato: per informazioni chiamaci allo <b>${tel}</b>.</p>`);
+  } else if (info.stato === 'annullato' && info.ritiro) {
+    // 5.2.1: un ritiro dei documenti annullato non si riprenota online: lo fissa il CAF
+    $('#titolo').textContent = 'Il tuo ritiro';
+    testo(info.ritiro.ritirato
+      ? `<h2>Documenti già ritirati</h2><p>Il ritiro dei documenti previsto ${quando} non serve più: i documenti risultano già ritirati. Per qualsiasi informazione chiamaci allo <b>${tel}</b>.</p>`
+      : `<h2>Ritiro annullato</h2><p>Il ritiro dei documenti di ${quando} è stato annullato. Per fissarne un altro chiamaci allo <b>${tel}</b>.</p>`);
   } else if (info.stato === 'annullato') {
     testo(`<h2>Appuntamento annullato</h2><p>L'appuntamento di ${quando} è annullato. Per un nuovo appuntamento <a href="?">prenota di nuovo</a> o chiamaci allo <b>${tel}</b>.</p>`);
   } else {
