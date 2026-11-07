@@ -82,6 +82,8 @@
   .ore { display: flex; flex-wrap: wrap; gap: 6px; }
   .ora { border: 1px solid var(--blu-bordo); background: #fff; color: var(--blu); border-radius: 8px; padding: 8px 12px; font: inherit; font-weight: 700; cursor: pointer; }
   .ora:hover { background: var(--blu-tinta); }
+  .ora-s { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--blu-bordo); background: #fff; color: var(--blu); border-radius: 8px; padding: 8px 12px; font-weight: 700; cursor: pointer; }
+  .ora-s input { width: 18px; height: 18px; accent-color: var(--blu); margin: 0; }
   .tipi { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
   .tipo { border: 2px solid var(--bordo); border-radius: 10px; background: #fff; padding: 14px; font: inherit; font-weight: 700; color: var(--blu); cursor: pointer; }
   .tipo.attivo { border-color: var(--blu); background: var(--blu-tinta); }
@@ -444,7 +446,8 @@ async function gestione(c) {
   $('#caricamento').classList.add('nascosto');
   box.classList.remove('nascosto');
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[x]));
-  if (info) { info.servizio = esc(info.servizio); info.telefono = esc(info.telefono); info.ora = esc(info.ora); }
+  const pulisci = i => { if (i) { i.servizio = esc(i.servizio); i.telefono = esc(i.telefono); i.ora = esc(i.ora); } return i; };
+  pulisci(info);
   const tel = (info && info.telefono) || '06 58204229';
   const testo = (html) => { box.innerHTML = html; };
   const quando = info && info.data ? `${giornoLungo(info.data)} alle ${info.ora}` : '';
@@ -455,6 +458,44 @@ async function gestione(c) {
   const conferma = (testoBottone, classe, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn ' + classe; b.textContent = testoBottone; b.onclick = async () => { b.disabled = true; try { await fn(); } catch (e) { b.disabled = false; alert('Non è riuscito: controlla la connessione e riprova.'); } }; return b; };
   if (!info) { testo(`<h2>Link non valido</h2><p>Questo link non è valido o non è più attivo. Per informazioni chiamaci allo <b>${tel}</b>.</p>`); return; }
   const esci = (titolo, msg, cls = 'ok') => testo(`<div class="messaggio ${cls}"><b>${titolo}</b></div><p>${msg}</p>`);
+  // ---- ritiro dei documenti: spostamento dal link (5.0.0) ----
+  const oraBella = h => { const s = String(h == null ? '' : h); return /^\d{4}$/.test(s) ? s.slice(0, 2) + ':' + s.slice(2) : s; };
+  const slotDi = i => { const r = (i && i.ritiro) || {}; return (Array.isArray(r.slot) ? r.slot : Object.values(r.slot || {})).filter(s => s && /^\d{4}-\d{2}-\d{2}$/.test(String(s.data)) && /^\d{4}$/.test(String(s.ora))); };
+  const attendi = ms => new Promise(ok => setTimeout(ok, ms));
+  function ritiroGestione(i, avviso) {
+    const ri = i.ritiro || {};
+    const slot = slotDi(i);
+    const dove = i.indirizzo ? `<br>${esc(i.indirizzo)}` : '';
+    const intro = `<h2>Ritiro dei documenti</h2><p>${i.servizio ? `<b>${i.servizio}</b><br>` : ''}${giornoLungo(i.data)} alle ${oraBella(i.ora)}${dove}</p>`;
+    if (!ri.puoSpostare || !slot.length) {
+      testo(`${avviso ? `<div class="messaggio errore">${avviso}</div>` : ''}${intro}<p class="nota">${ri.puoSpostare ? 'Al momento non ci sono altri orari liberi online. ' : ''}Per cambiare giorno chiamaci allo <b>${tel}</b>.</p>`);
+      return;
+    }
+    const giorni = [];
+    for (const s of slot) { let g = giorni.find(x => x.data === s.data); if (!g) { g = { data: s.data, ore: [] }; giorni.push(g); } g.ore.push(String(s.ora)); }
+    testo(`${avviso ? `<div class="messaggio errore">${avviso}</div>` : ''}${intro}<p>Puoi venire in un altro giorno, dalla data indicata in poi: scegli un orario libero.</p>
+      ${giorni.map(g => `<div class="giorno"><div class="giorno-titolo">${giornoLungo(g.data)}</div><div class="ore">${g.ore.map(o => `<label class="ora-s"><input type="radio" name="sl" value="${g.data}|${o}"> ${oraBella(o)}</label>`).join('')}</div></div>`).join('')}`);
+    box.appendChild(conferma('Sposta il ritiro', 'btn-primario', async () => {
+      const s = document.querySelector('input[name=sl]:checked');
+      if (!s) { alert('Scegli uno degli orari.'); throw new Error('nessuna scelta'); }
+      const [data, ora] = s.value.split('|');
+      await azione('sposta', { data, ora });
+      testo('<div class="messaggio attesa"><b>Un momento...</b></div><p>Stiamo spostando il ritiro.</p>');
+      let nuovo = null;
+      const fine = Date.now() + 60000;
+      while (Date.now() < fine) {
+        await attendi(3000);
+        try { nuovo = pulisci(await leggiFb(`/prenota/info/${encodeURIComponent(c)}`)); } catch (e) { nuovo = null; }
+        if (nuovo && nuovo.data === data && String(nuovo.ora).replace(':', '') === ora) {
+          esci('Ritiro spostato', `Ti aspettiamo ${giornoLungo(data)} alle ${oraBella(ora)}${nuovo.indirizzo ? `, ${esc(nuovo.indirizzo)}` : ''}. Per qualsiasi informazione chiamaci allo <b>${tel}</b>.`);
+          return;
+        }
+      }
+      // nessuna conferma: se l'orario non è più tra quelli liberi lo ha preso un altro, altrimenti la richiesta è ancora in coda
+      if (nuovo && !slotDi(nuovo).some(x => x.data === data && String(x.ora) === ora)) { ritiroGestione(nuovo, 'Questo orario non è più disponibile, scegline un altro.'); return; }
+      esci('Abbiamo ricevuto la richiesta', `Controlla tra qualche minuto con lo stesso link. Se hai dubbi chiamaci allo <b>${tel}</b>.`, 'attesa');
+    }));
+  }
   if (info.stato === 'attesa') {
     testo(`<h2>Richiesta in attesa di conferma</h2><p><b>${info.servizio}</b><br>${quando}</p><p class="nota">Ti scriveremo appena il CAF Gianicolense la conferma.</p>`);
     box.appendChild(conferma('Ritira la richiesta', 'btn-pericolo', async () => { if (!confirm('Ritiri la richiesta di appuntamento?')) throw new Error('annullato'); await azione('ritira'); esci('Richiesta ritirata', `Per un nuovo appuntamento <a href="?">prenota di nuovo</a> o chiamaci allo <b>${tel}</b>.`); }));
@@ -473,6 +514,10 @@ async function gestione(c) {
     const no = document.createElement('p'); no.style.textAlign = 'center';
     no.appendChild(conferma('Nessuno di questi mi va bene', 'btn-link', async () => { await azione('nessuna'); esci('Va bene', `Chiamaci allo <b>${tel}</b> e troviamo insieme un altro orario.`, 'attesa'); }));
     box.appendChild(no);
+  } else if (info.stato === 'confermato' && info.ritiro) {
+    // ritiro dei documenti (5.0.0): non si disdice, si sposta in un altro slot libero, mai prima della data indicata
+    $('#titolo').textContent = 'Il tuo ritiro';
+    ritiroGestione(info);
   } else if (info.stato === 'confermato') {
     // documenti da portare e indirizzo (4.10.0), con la stampa: si salva anche in PDF dal telefono
     const docs = Array.isArray(info.documenti) ? info.documenti : Object.values(info.documenti || {});
